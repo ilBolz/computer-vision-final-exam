@@ -19,7 +19,6 @@ ANNOTATIONS_DIR = DATA_DIR / "annotations"
 # Processed subdirectories
 YOLO_DATASET_DIR = PROCESSED_DATA_DIR / "yolo"
 CLASSIFIER_DATASET_DIR = PROCESSED_DATA_DIR / "classifier"
-KEYPOINTS_DATASET_DIR = PROCESSED_DATA_DIR / "keypoints"
 
 # Model directories
 MODELS_DIR = PROJECT_ROOT / "models"
@@ -28,7 +27,6 @@ YOLO_TRAFFIC_MODEL_FALLBACK = (
     PROJECT_ROOT / "runs" / "detect" / "models" / "yolov8n_traffic" / "weights" / "best.pt"
 )
 VEHICLE_CNN_PATH = MODELS_DIR / "vehicle_cnn.pt"
-HOG_SVM_PATH = MODELS_DIR / "hog_svm.pkl"
 
 # Traffic classes (VisDrone2019-DET filtered subset)
 # Original VisDrone IDs mapped to continuous indices:
@@ -62,7 +60,6 @@ for d in [
     ANNOTATIONS_DIR,
     YOLO_DATASET_DIR,
     CLASSIFIER_DATASET_DIR,
-    KEYPOINTS_DATASET_DIR,
     MODELS_DIR,
 ]:
     d.mkdir(parents=True, exist_ok=True)
@@ -73,25 +70,6 @@ PREPROCESSING = {
     "classifier_input_size": 224,
     "normalize_mean": [0.485, 0.456, 0.406],  # ImageNet
     "normalize_std": [0.229, 0.224, 0.225],   # ImageNet
-    "legacy_yolo_input_size": (416, 416),      # Width, Height for legacy YOLO
-    "legacy_scalefactor": 1 / 255.0,
-    "legacy_mean": (0, 0, 0),
-    "legacy_swap_rb": True,
-    "legacy_crop": False,
-}
-
-# Classical pipeline parameters (HOG + SVM)
-CLASSICAL = {
-    "hog_win_size": (64, 128),      # Width, Height
-    "hog_block_size": (16, 16),
-    "hog_block_stride": (8, 8),
-    "hog_cell_size": (8, 8),
-    "hog_nbins": 9,
-    "svm_kernel": "rbf",
-    "svm_c": 1.0,
-    "scale_factor": 1.05,           # Image pyramid scale for sliding window
-    "min_neighbors": 3,             # Min neighbors for grouping (custom NMS-like)
-    "stride": (8, 8),               # Sliding window stride
 }
 
 # YOLO parameters
