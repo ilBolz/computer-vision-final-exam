@@ -1,6 +1,6 @@
 # Real-Time Traffic Monitoring Framework
 
-A modular computer vision system comparing a classical pipeline (HOG + SVM) against a deep-learning pipeline (YOLOv8n multi-class detection + ResNet18 vehicle classification) for real-time traffic monitoring and vehicle counting.
+A modular computer vision system using deep learning (YOLOv8n multi-class detection + ResNet18 vehicle classification) for real-time traffic monitoring and vehicle counting.
 
 [![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
 [![OpenCV](https://img.shields.io/badge/opencv-4.8+-green.svg)](https://opencv.org/)
@@ -10,22 +10,21 @@ A modular computer vision system comparing a classical pipeline (HOG + SVM) agai
 
 ## Overview
 
-This project implements a complete traffic monitoring pipeline for 7 vehicle/pedestrian classes:
+This project implements a complete traffic monitoring pipeline for 7 vehicle/pedestrian classes using deep learning:
 
-| Stage | Classical (HOG + SVM) | Deep Learning (YOLOv8 + CNN) |
-|-------|----------------------|------------------------------|
-| Preprocessing | Grayscale, histogram equalization | Resize 640×640, normalization |
-| Features | HOG descriptor (64×128 window) | Learned CNN features (ResNet18) |
-| Detection | HOGDescriptor sliding window (people detector) | YOLOv8n multi-class detector |
-| Classification | SVM (RBF kernel) on HOG features | ResNet18 fine-tuned classifier |
-| Post-processing | IOU tracker + counting line | NMS + IOU tracker + counting line |
-| Evaluation | Accuracy, Precision, Recall, F1 | mAP@0.5, Accuracy, FPS |
+| Stage | Deep Learning (YOLOv8 + CNN) |
+|-------|------------------------------|
+| Preprocessing | Resize 640×640, normalization |
+| Features | Learned CNN features (ResNet18) |
+| Detection | YOLOv8n multi-class detector |
+| Classification | ResNet18 fine-tuned classifier |
+| Post-processing | NMS + IOU tracker + counting line |
+| Evaluation | mAP@0.5, Accuracy, FPS |
 
 ### Design Principles
 - **Modularity** — Swap backbones without touching visualization or metrics logic
 - **Explainability** — Custom IoU and NMS implementations with mathematical transparency
-- **Real-time** — Dual-mode webcam pipeline with instant switching (`c` / `d` keys)
-- **Vehicle Counting** — Simple centroid/IOU tracker with virtual counting line
+- **Real-time** — Webcam pipeline with vehicle counting and HUD overlay
 
 ---
 
@@ -57,16 +56,13 @@ python scripts/download_visdrone.py --output data/raw/visdrone
 # YOLO format for traffic detection (7 classes)
 python scripts/build_yolo_dataset.py
 
-# Vehicle/pedestrian crops for CNN/SVM classifier
+# Vehicle/pedestrian crops for CNN classifier
 python scripts/build_classifier_dataset.py
 ```
 
 ### 4. Train Models
 
 ```bash
-# Classical: HOG + SVM
-python scripts/train_svm.py
-
 # Deep Learning: YOLOv8n traffic detector
 python scripts/train_yolo.py --epochs 20
 
@@ -77,7 +73,7 @@ python scripts/train_classifier.py --epochs 20
 ### 5. Run Inference
 
 ```bash
-# Comparative evaluation on test images
+# Evaluation on test images
 python -m src.evaluation.compare --mode images --images img1.jpg img2.jpg --output docs/results/
 
 # Evaluation on classifier test dataset
@@ -87,18 +83,13 @@ python -m src.evaluation.compare --mode dataset --output docs/results/
 ### 6. Live Webcam / Video Demo
 
 ```bash
-# Classical mode (HOG + SVM, CPU-optimized)
-python scripts/run_webcam.py --mode classical --source 0
-
 # Deep mode (YOLO + CNN, GPU recommended)
-python scripts/run_webcam.py --mode deep --source 0
+python scripts/run_webcam.py --source 0
 
 # On a video file
-python scripts/run_webcam.py --mode deep --source path/to/video.mp4
+python scripts/run_webcam.py --source path/to/video.mp4
 
 # Controls:
-#   'c' → switch to CLASSICAL mode
-#   'd' → switch to DEEP mode
 #   's' → screenshot
 #   'q' → quit
 ```
@@ -113,17 +104,14 @@ computer_vision_exam/
 │   ├── raw/                   # VisDrone subset (gitignored)
 │   ├── processed/
 │   │   ├── yolo/              # YOLO format dataset
-│   │   ├── classifier/        # 224×224 vehicle crops
-│   │   └── keypoints/         # (legacy, unused)
+│   │   └── classifier/        # 224×224 vehicle crops
 │   └── annotations/           # JSON splits
 ├── models/
-│   ├── hog_svm.pkl            # Trained HOG+SVM classifier
 │   ├── vehicle_cnn.pt         # ResNet18 weights
 │   └── yolov8n_traffic.pt     # Fine-tuned YOLO (gitignored)
 ├── src/
 │   ├── config.py              # Centralized configuration
 │   ├── preprocessing/         # Image pipelines, YOLO formatter
-│   ├── classical/             # HOG + SVM pipeline
 │   ├── deep_learning/         # YOLOv8 + CNN pipeline
 │   ├── postprocessing/        # IoU, NMS, Tracker
 │   ├── evaluation/            # Metrics, benchmark, compare
@@ -168,16 +156,6 @@ Ignored original classes: `ignored regions` (0), `people` (2), `tricycle` (7), `
 
 ## Results
 
-### Classical Pipeline (HOG + SVM)
-
-| Metric | Value |
-|--------|-------|
-| Validation Accuracy | **TBD** |
-| Precision (macro) | TBD |
-| Recall (macro) | TBD |
-| F1 (macro) | TBD |
-| Inference Time | ~20-50 ms/frame (CPU) |
-
 ### Deep Learning Pipeline (YOLOv8 + ResNet18)
 
 | Metric | Value |
@@ -191,16 +169,16 @@ Ignored original classes: `ignored regions` (0), `people` (2), `tricycle` (7), `
 
 ### End-to-End Evaluation
 
-Run comparative evaluation:
+Run evaluation:
 
 ```bash
 python -m src.evaluation.compare --mode dataset --output docs/results/
 ```
 
 Generates:
-- `comparison_report.json` — FPS, latency, total detections
-- `classification_metrics.json` — Accuracy, Precision, Recall, F1 per pipeline
-- `confusion_classical.jpg` / `confusion_deep.jpg` — Confusion matrices
+- `evaluation_report.json` — FPS, latency, total detections
+- `classification_metrics.json` — Accuracy, Precision, Recall, F1
+- `confusion_deep.jpg` — Confusion matrix
 
 ---
 
@@ -231,6 +209,5 @@ The full methodology, experimental results, failure analysis, and ethical consid
 ## Acknowledgments
 
 - [VisDrone](https://github.com/VisDrone/VisDrone-Dataset) dataset authors (Zhu et al.)
-- OpenCV team for HOGDescriptor implementation
 - Ultralytics for YOLOv8
 - PyTorch and torchvision teams
