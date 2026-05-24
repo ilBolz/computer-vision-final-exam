@@ -8,11 +8,7 @@
 
 Immagina di avere una telecamera puntata su una strada. Questo progetto insegna al computer a **guardare quella strada e capire cosa sta succedendo**: quante auto passano, quanti camion, quanti pedoni attraversano, quante biciclette. E lo fa in **tempo reale**, cioè mentre le cose stanno succedendo, non dopo.
 
-Il progetto confronta **due modi diversi** di insegnare questa abilità al computer:
-1. Un metodo "classico", fatto a mano dai programmatori
-2. Un metodo "moderno", basato sull'intelligenza artificiale (deep learning)
-
-È come se un bambino dovesse imparare a riconoscere gli animali: puoi insegnargli le regole ("ha quattro zampe e fa bau = cane") oppure fargli vedere migliaia di foto finché non impara da solo. Questo progetto fa entrambe le cose e le confronta.
+Il progetto usa un metodo "moderno", basato sull'intelligenza artificiale (deep learning), che impara a riconoscere i veicoli guardando migliaia di esempi. È come quando un bambino impara a riconoscere gli animali: gli fai vedere tante foto finché non impara da solo.
 
 ---
 
@@ -32,56 +28,13 @@ Invece di mettere sensori sotto l'asfalto (costosi da installare), usiamo una **
 
 ---
 
-## 3. Come Funziona? Le Due "Menti" del Computer
+## 3. Come Funziona? Il Cervello Artificiale
 
-Il progetto ha due "cervelli" che risolvono lo stesso problema in modi completamente diversi.
-
----
-
-## 4. La Mente Classica: HOG + SVM
-
-### L'idea di base
-
-Questo metodo funziona come un **poliziotto esperto** che ha imparato a riconoscere i veicoli seguendo regole precise, non intuito.
-
-### Passo 1: HOG — "Come disegnare il contorno delle cose"
-
-**HOG** sta per *Histogram of Oriented Gradients* (Istogramma dei Gradienti Orientati). Non farti spaventare dal nome.
-
-**Analogia semplice:**
-Immagina di voler riconoscere una persona al buio, toccandola. Non vedi i colori, ma senti **i bordi**: la testa è tonda, le braccia sono cilindriche, le gambe sono lunghe e sottili. HOG fa esattamente questo: guarda l'immagine e disegna una mappa dei **bordi**.
-
-Tecnicamente:
-- Prende una piccola finestra dell'immagine (64×128 pixel, grande come un francobollo)
-- Per ogni pixel, calcola in che direzione va il bordo (su, giù, sinistra, destra, diagonale)
-- Crea un istogramma: "in questa finestra ci sono tanti bordi verticali, pochi orizzontali"
-
-**Perché funziona?** Perché una macchina ha bordi diversi da un pedone. La macchina è più larga e bassa, il pedone è più alto e stretto. I bordi raccontano la forma.
-
-### Passo 2: SVM — "Il Maestro che Distingue"
-
-**SVM** sta per *Support Vector Machine* (Macchina a Vettori di Supporto).
-
-**Analogia semplice:**
-Immagina di avere un foglio con tanti puntini. I puntini blu sono "auto", i puntini rossi sono "camion", i puntini verdi sono "pedoni". L'SVM è come un maestro che traccia delle **linee di separazione** tra i gruppi di puntini. Quando arriva un nuovo puntino, il maestro guarda da che parte delle linee cade e dice: "Questo è un camion!"
-
-Tecnicamente:
-- Ogni finestra dell'immagine (dopo HOG) diventa un "puntino" in uno spazio con migliaia di dimensioni
-- L'SVM trova le superfici che separano meglio le classi
-- Quando vede una nuova finestra, dice a quale classe appartiene
-
-### Vantaggi del metodo classico
-- **Veloce**: funziona anche su computer vecchi
-- **Leggero**: non richiede schede video costose
-- **Spiegabile**: se sbaglia, possiamo capire perché guardando i bordi
-
-### Svantaggi
-- **Fragile**: se piove, se fa buio, se l'auto è coperta di neve, le regole dei bordi non funzionano più
-- **Faticoso**: qualcuno deve scrivere le regole a mano
+Il progetto usa una "mente" molto potente basata sull'intelligenza artificiale.
 
 ---
 
-## 5. La Mente Moderna: YOLO + CNN (Deep Learning)
+## 4. La Mente Moderna: YOLO + CNN (Deep Learning)
 
 ### L'idea di base
 
@@ -117,14 +70,16 @@ Come impara?
 - Ad ogni errore, corregge leggermente i suoi neuroni
 - Dopo migliaia di tentativi, diventa bravissimo
 
-**La differenza fondamentale con HOG+SVM:**
-- HOG+SVM: un ingegnere umano decide quali bordi sono importanti
-- CNN: il computer **scopre da solo** quali pattern sono importanti, e spesso trova cose che noi non avremmo mai pensato (es. la texture dell'asfalto intorno all'auto, l'ombra sotto il veicolo)
+**Perché è così potente?**
+- Il computer **scopre da solo** quali pattern sono importanti
+- Trova cose che noi non avremmo mai pensato (es. la texture dell'asfalto intorno all'auto, l'ombra sotto il veicolo)
+- Migliora continuamente con più dati
 
 ### Vantaggi del Deep Learning
 - **Molto preciso**: raggiunge il 95-99% di accuratezza
 - **Robusto**: funziona con pioggia, nebbia, buio (entro certi limiti)
 - **Automatico**: non serve scrivere regole a mano
+- **Versatile**: impara a riconoscere qualsiasi oggetto, basta dargli esempi
 
 ### Svantaggi
 - **Assetato di potenza**: richiede una scheda grafica (GPU) potente per allenarsi
@@ -133,7 +88,7 @@ Come impara?
 
 ---
 
-## 6. Il Conteggio dei Veicoli: Come "Contare" Senza Dita
+## 5. Il Conteggio dei Veicoli: Come "Contare" Senza Dita
 
 Ora che il computer vede i veicoli, come fa a **contarli**? Non può usare le dita!
 
@@ -158,7 +113,7 @@ Per evitare di contare la stessa auto più volte, usiamo un **tracker** (insegui
 
 ---
 
-## 7. Il Dataset: La "Scuola" del Computer
+## 6. Il Dataset: La "Scuola" del Computer
 
 Per insegnare al computer, servono **esempi**. Tante foto di strade con le auto evidenziate.
 
@@ -190,27 +145,7 @@ Le classi ignorate (perché poco utili o rappresentate male nel dataset): "regio
 
 ---
 
-## 8. Confronto tra le Due Menti
-
-| Caratteristica | HOG + SVM (Classico) | YOLO + CNN (Deep Learning) |
-|---|---|---|
-| **Come impara** | Regole scritte da umani | Esempi guardati migliaia di volte |
-| **Velocità** | Molto veloce (CPU) | Veloce con GPU, lento senza |
-| **Precisione** | Buona (70-85%) | Molto alta (90-99%) |
-| **Robustezza** | Si confonde con pioggia/buio | Molto più robusto |
-| **Spiegabilità** | Alta (vediamo i bordi) | Bassa (scatola nera) |
-| **Allenamento** | Veloce (minuti) | Lento (ore/giorni) |
-| **Spazio su disco** | Pochi KB | Centinaia di MB |
-| **Quando usarlo** | Telecamere vecchie, sistemi embedded | Server moderni, alta precisione |
-
-### La metafora del medico
-
-- **HOG+SVM** è come un medico di 50 anni fa: guarda i sintomi, applica le regole che ha imparato sui libri, fa una diagnosi. Se vede qualcosa di nuovo, si confonde.
-- **YOLO+CNN** è come un medico moderno con l'AI: ha visto milioni di casi, riconosce pattern sottili, ma se gli chiedi "perché hai diagnosticato questo?", risponde "non lo so con precisione, ma ne ho visti tanti simili".
-
----
-
-## 9. Glossario per Non-Addetti ai Lavori
+## 7. Glossario per Non-Addetti ai Lavori
 
 | Termine | Spiegazione Semplice |
 |---|---|
@@ -228,7 +163,7 @@ Le classi ignorate (perché poco utili o rappresentate male nel dataset): "regio
 
 ---
 
-## 10. Struttura del Progetto (Semplificata)
+## 8. Struttura del Progetto (Semplificata)
 
 ```
 computer_vision_exam/
@@ -238,11 +173,9 @@ computer_vision_exam/
 │       ├── yolo/               ← Foto + etichette per YOLO
 │       └── classifier/         ← Ritagli di veicoli per la CNN
 ├── models/
-│   ├── hog_svm.pkl             ← Il cervello classico (file piccolo)
 │   ├── vehicle_cnn.pt          ← Il cervello moderno (file grosso)
 │   └── yolov8n_traffic.pt      ← L'occhio di YOLO (file enorme)
 ├── src/                        ← Il codice sorgente
-│   ├── classical/              ← HOG + SVM
 │   ├── deep_learning/          ← YOLO + CNN
 │   ├── postprocessing/         ← Tracker, IoU, NMS
 │   ├── webcam/                 ← La telecamera live
@@ -253,7 +186,7 @@ computer_vision_exam/
 
 ---
 
-## 11. Come Si Usa (Guida Passo-Passo)
+## 9. Come Si Usa (Guida Passo-Passo)
 
 ### Per un Utente Normale
 
@@ -273,14 +206,12 @@ Quando il programma è attivo, vedi:
 - **FPS**: quante volte al secondo il computer analizza l'immagine
 
 I tasti da premere:
-- **c** → passa alla modalità classica (HOG+SVM)
-- **d** → passa alla modalità deep (YOLO+CNN)
 - **s** → scatta una foto dello schermo
 - **q** → esci
 
 ---
 
-## 12. Limiti e Cose da Sapere
+## 10. Limiti e Cose da Sapere
 
 ### Cosa FUNZIONA bene
 - Giorno soleggiato
@@ -304,7 +235,7 @@ Se usi questo programma in Italia o in Brasile, potrebbe essere leggermente meno
 
 ---
 
-## 13. Perché Questo Progetto è Utile?
+## 11. Perché Questo Progetto è Utile?
 
 1. **Smart Cities**: le città intelligenti usano telecamere per regolare i semafori in tempo reale
 2. **Sicurezza stradale**: rilevamento automatico di incidenti (se una macchina si ferma improvvisamente)
@@ -314,13 +245,11 @@ Se usi questo programma in Italia o in Brasile, potrebbe essere leggermente meno
 
 ---
 
-## 14. Riepilogo Finale
+## 12. Riepilogo Finale
 
 Questo progetto insegna a un computer a **guardare una strada e capire cosa c'è**.
 
-Usa **due metodi diversi**:
-1. **HOG + SVM**: un metodo classico, veloce, basato su regole scritte a mano
-2. **YOLO + CNN**: un metodo moderno, potentissimo, basato sull'intelligenza artificiale
+Usa **YOLO + CNN**, un metodo moderno e potentissimo basato sull'intelligenza artificiale. Il computer impara da solo a riconoscere auto, camion, bus, pedoni, biciclette e moto guardando migliaia di esempi.
 
 Il computer impara da un dataset chiamato **VisDrone**, che contiene migliaia di foto di strade con i veicoli già evidenziati.
 
