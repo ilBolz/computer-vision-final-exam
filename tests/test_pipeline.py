@@ -8,37 +8,13 @@ work on synthetic data.
 import numpy as np
 import pytest
 
-from src.preprocessing.image_pipeline import preprocess_for_yolo, preprocess_for_classical
-
 
 class TestPreprocessing:
-    def test_yolo_blob_shape(self):
+    def test_resize_image(self):
+        from src.preprocessing.image_pipeline import resize_image
         img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        blob = preprocess_for_yolo(img)
-        assert blob.shape == (1, 3, 416, 416)
-
-    def test_classical_grayscale(self):
-        img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        out = preprocess_for_classical(img)
-        assert len(out.shape) == 2
-        assert out.shape == (480, 640)
-
-
-class TestHOGDetector:
-    def test_import(self):
-        from src.classical.hog_detector import HOGDetector
-        assert HOGDetector is not None
-
-    def test_instantiation(self):
-        from src.classical.hog_detector import HOGDetector
-        det = HOGDetector(use_default_detector=True)
-        assert det is not None
-
-
-class TestVehicleClassifier:
-    def test_import(self):
-        from src.classical.vehicle_classifier import VehicleClassifier
-        assert VehicleClassifier is not None
+        out = resize_image(img, (320, 240))
+        assert out.shape == (240, 320, 3)
 
 
 class TestYOLOTrafficDetector:
@@ -84,17 +60,10 @@ class TestTrafficPipeline:
         from src.webcam.pipeline import TrafficPipeline
         assert TrafficPipeline is not None
 
-    def test_mode_switch(self):
-        from src.webcam.pipeline import TrafficPipeline
-        pipeline = TrafficPipeline(mode="classical")
-        assert pipeline.mode == "classical"
-        pipeline.switch_mode("deep")
-        assert pipeline.mode == "deep"
-
     def test_counts_initialized(self):
         from src.webcam.pipeline import TrafficPipeline
         from src.config import TRAFFIC_CLASSES
-        pipeline = TrafficPipeline(mode="deep")
+        pipeline = TrafficPipeline()
         assert len(pipeline.counts) == len(TRAFFIC_CLASSES)
         for v in pipeline.counts.values():
             assert v == 0

@@ -1,25 +1,9 @@
 """
-Unit tests for vehicle classifiers (SVM and CNN).
+Unit tests for vehicle classifiers (CNN).
 """
 
 import numpy as np
 import pytest
-
-
-def test_svm_predicts_valid_class():
-    """SVM should predict one of the 7 traffic classes."""
-    from src.classical.vehicle_classifier import VehicleClassifier
-    from src.config import NUM_TRAFFIC_CLASSES
-
-    clf = VehicleClassifier()
-    # Mock training with random data
-    X = np.random.rand(20, 10)
-    y = np.random.randint(0, NUM_TRAFFIC_CLASSES, 20)
-    clf.train(X, y)
-
-    pred, conf = clf.predict(X[0])
-    assert 0 <= pred < NUM_TRAFFIC_CLASSES
-    assert 0 <= conf <= 1
 
 
 def test_cnn_output_shape():
