@@ -1,14 +1,13 @@
 """
-Side-by-side comparison of Classical vs Deep Learning traffic pipelines.
+Evaluation script for the Deep Learning traffic pipeline.
 
-Evaluates both pipelines on test images / datasets and generates
-a comparison report with detection metrics, classification accuracy,
+Evaluates YOLO + CNN on test images / datasets and generates
+a report with detection metrics, classification accuracy,
 and inference speed.
 """
 
 import argparse
 import json
-import time
 from pathlib import Path
 
 import cv2
@@ -16,47 +15,12 @@ import numpy as np
 import torch
 from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
-from src.config import TRAFFIC_CLASSES, YOLO_TRAFFIC_MODEL_PATH, VEHICLE_CNN_PATH, HOG_SVM_PATH
-from src.classical.hog_detector import HOGDetector
-from src.classical.vehicle_classifier import VehicleClassifier
+from src.config import TRAFFIC_CLASSES, YOLO_TRAFFIC_MODEL_PATH, VEHICLE_CNN_PATH
 from src.deep_learning.yolo_detector import YOLOTrafficDetector
 from src.deep_learning.vehicle_net import VehicleNet
 from src.evaluation.benchmark import benchmark_detector
 from src.evaluation.metrics import plot_confusion_matrix
 from src.utils.visualization import draw_detections
-
-
-class ClassicalPipeline:
-    """End-to-end classical pipeline: HOG -> SVM."""
-
-    def __init__(self):
-        self.detector = HOGDetector(use_default_detector=True)
-        self.classifier = VehicleClassifier()
-        if HOG_SVM_PATH.exists():
-            self.classifier.load(str(HOG_SVM_PATH))
-
-    def detect(self, image: np.ndarray):
-        """Return detections in [class_id, confidence, x, y, w, h] format."""
-        detections = self.detector.detect(image)
-        refined = []
-        for det in detections:
-            cls_id, conf, x, y, w, h = det
-            if self.classifier.is_trained:
-                x1, y1, x2, y2 = int(x), int(y), int(x + w), int(y + h)
-                x1, y1 = max(0, x1), max(0, y1)
-                x2, y2 = min(image.shape[1], x2), min(image.shape[0], y2)
-                crop = image[y1:y2, x1:x2]
-                if crop.size > 0:
-                    import cv2
-                    gray = cv2.cvtColor(crop, cv2.COLOR_BGR2GRAY)
-                    gray = cv2.resize(gray, (64, 128))
-                    from src.preprocessing.image_pipeline import compute_hog_descriptor
-                    feat = compute_hog_descriptor(gray).flatten()
-                    pred_cls, pred_conf = self.classifier.predict(feat)
-                    refined.append([pred_cls, pred_conf, x, y, w, h])
-                    continue
-            refined.append(det)
-        return refined
 
 
 class DeepPipeline:
@@ -109,8 +73,8 @@ class DeepPipeline:
         return refined
 
 
-def evaluate_on_images(classical: ClassicalPipeline, deep: DeepPipeline, image_paths, output_dir: Path):
-    """Run both pipelines on a list of images and collect detection + timing metrics."""
+def evaluate_on_images(pipeline: DeepPipeline, image_paths, output_dir: Path):
+    """Run pipeline on a list of images and collect detection + timing metrics."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     images = []
@@ -122,54 +86,39 @@ def evaluate_on_images(classical: ClassicalPipeline, deep: DeepPipeline, image_p
             valid_paths.append(p)
 
     if len(images) == 0:
-        raise ValueError("No valid images provided for comparison.")
-
-    print("Benchmarking classical pipeline...")
-    classical_bench = benchmark_detector(classical, images, warmup=1)
+        raise ValueError("No valid images provided for evaluation.")
 
     print("Benchmarking deep learning pipeline...")
-    deep_bench = benchmark_detector(deep, images, warmup=1)
+    bench = benchmark_detector(pipeline, images, warmup=1)
 
-    classical_results = []
-    deep_results = []
+    results = []
 
     for i, image in enumerate(images):
-        c_dets = classical.detect(image)
-        d_dets = deep.detect(image)
+        dets = pipeline.detect(image)
+        results.append(dets)
 
-        classical_results.append(c_dets)
-        deep_results.append(d_dets)
-
-        c_vis = draw_detections(image.copy(), c_dets, class_names=TRAFFIC_CLASSES)
-        d_vis = draw_detections(image.copy(), d_dets, class_names=TRAFFIC_CLASSES)
-
-        cv2.imwrite(str(output_dir / f"classical_{i:03d}.jpg"), c_vis)
-        cv2.imwrite(str(output_dir / f"deep_{i:03d}.jpg"), d_vis)
+        vis = draw_detections(image.copy(), dets, class_names=TRAFFIC_CLASSES)
+        cv2.imwrite(str(output_dir / f"deep_{i:03d}.jpg"), vis)
 
     report = {
         "num_images": len(images),
-        "classical": {
-            "fps": classical_bench["mean_fps"],
-            "latency_ms": classical_bench["mean_latency_ms"],
-            "total_detections": sum(len(r) for r in classical_results),
-        },
         "deep": {
-            "fps": deep_bench["mean_fps"],
-            "latency_ms": deep_bench["mean_latency_ms"],
-            "total_detections": sum(len(r) for r in deep_results),
+            "fps": bench["mean_fps"],
+            "latency_ms": bench["mean_latency_ms"],
+            "total_detections": sum(len(r) for r in results),
         },
     }
 
-    report_path = output_dir / "comparison_report.json"
+    report_path = output_dir / "evaluation_report.json"
     with open(report_path, "w") as f:
         json.dump(report, f, indent=2)
 
-    print(f"Comparison complete. Results saved to {output_dir}")
+    print(f"Evaluation complete. Results saved to {output_dir}")
     return report
 
 
-def evaluate_classifier_dataset(classical: ClassicalPipeline, deep: DeepPipeline, data_dir: Path, output_dir: Path):
-    """Evaluate both pipelines on the classifier crop dataset."""
+def evaluate_classifier_dataset(pipeline: DeepPipeline, data_dir: Path, output_dir: Path):
+    """Evaluate pipeline on the classifier crop dataset."""
     from torchvision import datasets
     import torchvision.transforms as T
 
@@ -183,8 +132,7 @@ def evaluate_classifier_dataset(classical: ClassicalPipeline, deep: DeepPipeline
     dataset = datasets.ImageFolder(root=data_dir, transform=transform)
 
     y_true = []
-    y_classical = []
-    y_deep = []
+    y_pred = []
 
     print(f"Evaluating on {len(dataset)} samples from {data_dir}...")
 
@@ -197,22 +145,14 @@ def evaluate_classifier_dataset(classical: ClassicalPipeline, deep: DeepPipeline
 
         y_true.append(label)
 
-        c_dets = classical.detect(image)
-        if len(c_dets) > 0:
-            c_dets.sort(key=lambda d: d[1], reverse=True)
-            y_classical.append(c_dets[0][0])
+        dets = pipeline.detect(image)
+        if len(dets) > 0:
+            dets.sort(key=lambda d: d[1], reverse=True)
+            y_pred.append(dets[0][0])
         else:
-            y_classical.append(-1)
+            y_pred.append(-1)
 
-        d_dets = deep.detect(image)
-        if len(d_dets) > 0:
-            d_dets.sort(key=lambda d: d[1], reverse=True)
-            y_deep.append(d_dets[0][0])
-        else:
-            y_deep.append(-1)
-
-    valid_classical = [(t, p) for t, p in zip(y_true, y_classical) if p != -1]
-    valid_deep = [(t, p) for t, p in zip(y_true, y_deep) if p != -1]
+    valid = [(t, p) for t, p in zip(y_true, y_pred) if p != -1]
 
     def _metrics(y_t, y_p):
         return {
@@ -224,42 +164,30 @@ def evaluate_classifier_dataset(classical: ClassicalPipeline, deep: DeepPipeline
 
     metrics = {
         "num_samples": len(y_true),
-        "classical": {
-            **_metrics([v[0] for v in valid_classical], [v[1] for v in valid_classical]),
-            "detection_rate": len(valid_classical) / len(y_true),
-        },
         "deep": {
-            **_metrics([v[0] for v in valid_deep], [v[1] for v in valid_deep]),
-            "detection_rate": len(valid_deep) / len(y_true),
+            **_metrics([v[0] for v in valid], [v[1] for v in valid]),
+            "detection_rate": len(valid) / len(y_true),
         },
     }
 
     with open(output_dir / "classification_metrics.json", "w") as f:
         json.dump(metrics, f, indent=2)
 
-    if len(valid_classical) > 0:
+    if len(valid) > 0:
         plot_confusion_matrix(
-            [v[0] for v in valid_classical],
-            [v[1] for v in valid_classical],
-            TRAFFIC_CLASSES,
-            save_path=output_dir / "confusion_classical.jpg",
-        )
-    if len(valid_deep) > 0:
-        plot_confusion_matrix(
-            [v[0] for v in valid_deep],
-            [v[1] for v in valid_deep],
+            [v[0] for v in valid],
+            [v[1] for v in valid],
             TRAFFIC_CLASSES,
             save_path=output_dir / "confusion_deep.jpg",
         )
 
     print("Classification evaluation complete.")
-    print(f"  Classical accuracy: {metrics['classical']['accuracy']:.4f} (detected {metrics['classical']['detection_rate']:.2%})")
     print(f"  Deep accuracy:      {metrics['deep']['accuracy']:.4f} (detected {metrics['deep']['detection_rate']:.2%})")
     return metrics
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Compare Classical vs Deep Learning traffic pipelines")
+    parser = argparse.ArgumentParser(description="Evaluate Deep Learning traffic pipeline")
     parser.add_argument("--mode", choices=["images", "dataset"], default="images",
                         help="Evaluation mode: 'images' for raw images, 'dataset' for classifier test set")
     parser.add_argument("--images", nargs="*", help="Paths to test images (mode=images)")
@@ -271,26 +199,20 @@ def main():
     output_dir = Path(args.output)
     output_dir.mkdir(parents=True, exist_ok=True)
 
-    print("Loading classical pipeline...")
-    classical = ClassicalPipeline()
-
     print("Loading deep learning pipeline...")
-    deep = DeepPipeline()
+    pipeline = DeepPipeline()
 
     if args.mode == "images":
         if not args.images:
             raise ValueError("--images required when mode=images")
         image_paths = [Path(p) for p in args.images]
-        report = evaluate_on_images(classical, deep, image_paths, output_dir)
-        print("\n--- Detection Comparison Report ---")
+        report = evaluate_on_images(pipeline, image_paths, output_dir)
+        print("\n--- Detection Evaluation Report ---")
         print(f"Images processed: {report['num_images']}")
-        print(f"Classical FPS: {report['classical']['fps']:.2f}  |  Detections: {report['classical']['total_detections']}")
         print(f"Deep FPS:      {report['deep']['fps']:.2f}  |  Detections: {report['deep']['total_detections']}")
     else:
-        metrics = evaluate_classifier_dataset(classical, deep, Path(args.dataset), output_dir)
-        print("\n--- Classification Comparison Report ---")
-        print(f"Classical: accuracy={metrics['classical']['accuracy']:.4f}, precision={metrics['classical']['precision']:.4f}, "
-              f"recall={metrics['classical']['recall']:.4f}, f1={metrics['classical']['f1']:.4f}")
+        metrics = evaluate_classifier_dataset(pipeline, Path(args.dataset), output_dir)
+        print("\n--- Classification Evaluation Report ---")
         print(f"Deep:      accuracy={metrics['deep']['accuracy']:.4f}, precision={metrics['deep']['precision']:.4f}, "
               f"recall={metrics['deep']['recall']:.4f}, f1={metrics['deep']['f1']:.4f}")
 
