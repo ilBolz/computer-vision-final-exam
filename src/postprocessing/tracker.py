@@ -39,6 +39,9 @@ class SimpleTracker:
                     best_tid = tid
 
             if best_tid is not None:
+                # Salva il centroide precedente per rilevare i crossing
+                old_centroid = self.tracks[best_tid]["centroid"]
+                self.tracks[best_tid]["prev_centroid"] = old_centroid
                 self.tracks[best_tid]["bbox"] = bbox
                 self.tracks[best_tid]["centroid"] = new_centroids[i]
                 self.tracks[best_tid]["missing_count"] = 0
@@ -51,6 +54,7 @@ class SimpleTracker:
                 self.tracks[self.next_id] = {
                     "bbox": new_bboxes[i],
                     "centroid": new_centroids[i],
+                    "prev_centroid": None,
                     "missing_count": 0,
                     "counted": False,
                     "class_id": int(detections[i][0]),
@@ -69,13 +73,20 @@ class SimpleTracker:
                 "class_id": t["class_id"],
                 "bbox": t["bbox"],
                 "centroid": t["centroid"],
+                "prev_centroid": t.get("prev_centroid"),
                 "counted": t["counted"],
             }
             for tid, t in self.tracks.items()
         ]
 
     def check_crossings(self, tracks, line_orientation="horizontal", line_ratio=0.5, img_h=720, img_w=1280):
-        """Check line crossings and return count increments."""
+        """Check line crossings and return count increments.
+
+        Counts only when an object truly crosses the line:
+        - horizontal: from above (prev < line) to below (curr >= line)
+        - vertical: from left (prev < line) to right (curr >= line)
+        Objects without previous history or already counted are ignored.
+        """
         counts = defaultdict(int)
 
         if line_orientation == "horizontal":
@@ -83,8 +94,12 @@ class SimpleTracker:
             for track in tracks:
                 if track["counted"]:
                     continue
-                _, cy = track["centroid"]
-                if cy >= line_pos:
+                prev = track.get("prev_centroid")
+                if prev is None:
+                    continue
+                _, prev_y = prev
+                _, curr_y = track["centroid"]
+                if prev_y < line_pos and curr_y >= line_pos:
                     track["counted"] = True
                     counts[track["class_id"]] += 1
         else:
@@ -92,8 +107,12 @@ class SimpleTracker:
             for track in tracks:
                 if track["counted"]:
                     continue
-                cx, _ = track["centroid"]
-                if cx >= line_pos:
+                prev = track.get("prev_centroid")
+                if prev is None:
+                    continue
+                prev_x, _ = prev
+                curr_x, _ = track["centroid"]
+                if prev_x < line_pos and curr_x >= line_pos:
                     track["counted"] = True
                     counts[track["class_id"]] += 1
 
