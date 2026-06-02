@@ -1,7 +1,6 @@
 """Drawing utilities for bounding boxes, labels, counters."""
 
 import cv2
-import numpy as np
 from src.config import VISUALIZATION, TRAFFIC_CLASSES
 
 
@@ -98,40 +97,34 @@ def draw_counters(image, counts, class_names=None):
     box_colors = VISUALIZATION.get("box_colors", {})
     default_color = (0, 255, 0)
 
-    # Normalize counts keys to class names
-    named_counts = {}
+    # Build display lines preserving correct class_id → color mapping
+    display_lines = [("--- COUNTS ---", None), (f"TOTAL: {sum(counts.values())}", None)]
     for k, v in counts.items():
         if isinstance(k, int) and 0 <= k < len(class_names):
-            named_counts[class_names[k]] = v
+            display_lines.append((f"{class_names[k]}: {v}", k))
         else:
-            named_counts[str(k)] = v
-
-    total = sum(named_counts.values())
-    lines = ["--- COUNTS ---", f"TOTAL: {total}"] + [
-        f"{name}: {count}" for name, count in named_counts.items()
-    ]
+            display_lines.append((f"{str(k)}: {v}", None))
 
     # Compute max width for background box
     max_tw = 0
-    for line in lines:
-        (tw, th), _ = cv2.getTextSize(line, VISUALIZATION["font"], 0.6, 1)
+    for text, _ in display_lines:
+        (tw, th), _ = cv2.getTextSize(text, VISUALIZATION["font"], 0.6, 1)
         max_tw = max(max_tw, tw)
 
     line_height = 22
-    box_h = len(lines) * line_height + 10
+    box_h = len(display_lines) * line_height + 10
     box_w = max_tw + 20
     x0 = w - box_w - 10
     y0 = 10
 
     cv2.rectangle(out, (x0, y0), (x0 + box_w, y0 + box_h), (0, 0, 0), -1)
 
-    for i, line in enumerate(lines):
+    for i, (text, class_id) in enumerate(display_lines):
         y = y0 + 25 + i * line_height
-        if i >= 2:
-            class_id = i - 2
+        if class_id is not None:
             color = box_colors.get(class_id, default_color)
         else:
             color = (255, 255, 255)
-        cv2.putText(out, line, (x0 + 10, y), VISUALIZATION["font"], 0.6, color, 1, cv2.LINE_AA)
+        cv2.putText(out, text, (x0 + 10, y), VISUALIZATION["font"], 0.6, color, 1, cv2.LINE_AA)
 
     return out

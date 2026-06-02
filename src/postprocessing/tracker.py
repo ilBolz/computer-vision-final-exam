@@ -2,8 +2,6 @@
 
 from collections import defaultdict
 
-import numpy as np
-
 
 class SimpleTracker:
     def __init__(self, iou_threshold=0.3, max_missing=60, centroid_match_thresh=50.0):

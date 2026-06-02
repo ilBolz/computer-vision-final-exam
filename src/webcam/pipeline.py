@@ -55,7 +55,7 @@ class TrafficPipeline:
         fps_text = f"FPS: {fps:.1f}"
         cv2.putText(
             frame, fps_text, (10, 30),
-            cv2.FONT_HERSHEY_SIMPLEX, 0.8,
+            VISUALIZATION["font"], 0.8,
             (255, 255, 255), 2
         )
         return frame

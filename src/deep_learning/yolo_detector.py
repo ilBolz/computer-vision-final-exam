@@ -3,9 +3,8 @@
 from pathlib import Path
 
 import numpy as np
-import cv2
 
-from src.config import YOLO, YOLO_TRAFFIC_MODEL_PATH, YOLO_TRAFFIC_MODEL_FALLBACK
+from src.config import YOLO, YOLO_TRAFFIC_MODEL_PATH, YOLO_TRAFFIC_MODEL_FALLBACK, MODELS_DIR
 
 
 class YOLOTrafficDetector:
@@ -49,8 +48,6 @@ class YOLOTrafficDetector:
         boxes = result.boxes
         if boxes is None or len(boxes) == 0:
             return detections
-
-        img_h, img_w = image.shape[:2]
 
         for box in boxes:
             cls_id = int(box.cls[0])

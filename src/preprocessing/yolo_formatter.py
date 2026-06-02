@@ -1,6 +1,5 @@
 """Convert VisDrone annotations to YOLO format."""
 
-import shutil
 from pathlib import Path
 
 from src.config import VISDRONE_CLASS_MAP, VISDRONE_IGNORE_CLASSES

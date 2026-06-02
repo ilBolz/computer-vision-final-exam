@@ -1,6 +1,5 @@
 """Fine-tune YOLOv8n on VisDrone traffic data."""
 
-import argparse
 from pathlib import Path
 
 from ultralytics import YOLO as YOLOModel

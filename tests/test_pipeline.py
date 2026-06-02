@@ -1,6 +1,5 @@
 """Pipeline smoke tests."""
 
-import numpy as np
 import pytest
 
 
