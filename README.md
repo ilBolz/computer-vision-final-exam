@@ -77,13 +77,17 @@ python scripts/run_monitoring.py --source 1
 
 ### Video file
 
-You can use any video file for testing:
+### Video file
+
+A sample aerial traffic video is included in the repository for quick testing:
 
 ```bash
-# Place your video in the demo/ folder (optional, for convenience)
-python scripts/run_monitoring.py --source demo/your_video.mp4
+python scripts/run_monitoring.py --source demo/traffic_demo.mp4
+```
 
-# Or use any path on your system
+You can also use any of your own videos:
+
+```bash
 python scripts/run_monitoring.py --source path/to/video.mp4
 ```
 
@@ -170,7 +174,8 @@ python scripts/run_monitoring.py --source 0
 │   ├── results/           # Generated screenshots and evaluation plots
 │   ├── technical_analysis.md
 │   └── technical_analysis.pdf
-├── demo/                      # Optional folder for test videos
+├── demo/
+│   └── traffic_demo.mp4       # Sample aerial traffic video for testing
 ├── requirements.txt
 └── README.md
 ```
