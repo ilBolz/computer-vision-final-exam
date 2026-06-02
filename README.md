@@ -66,19 +66,19 @@ All tests should pass.
 ### Webcam (built-in — index 0)
 
 ```bash
-python scripts/run_webcam.py --source 0
+python scripts/run_monitoring.py --source 0
 ```
 
 ### Webcam (external / USB — index 1)
 
 ```bash
-python scripts/run_webcam.py --source 1
+python scripts/run_monitoring.py --source 1
 ```
 
 ### Video file
 
 ```bash
-python scripts/run_webcam.py --source path/to/video.mp4
+python scripts/run_monitoring.py --source path/to/video.mp4
 ```
 
 ### Controls while running
@@ -96,14 +96,14 @@ python scripts/run_webcam.py --source path/to/video.mp4
 If your webcam freezes or shows black frames with forced resolutions, launch with `--native` to use the camera's default settings:
 
 ```bash
-python scripts/run_webcam.py --source 1 --native
+python scripts/run_monitoring.py --source 1 --native
 ```
 
 ## Available scripts
 
 | Script                             | Purpose                                             |
 | ---------------------------------- | --------------------------------------------------- |
-| `scripts/run_webcam.py`            | Live webcam / video demo (default source 0)         |
+| `scripts/run_monitoring.py`        | Live webcam / video demo (default source 0)         |
 | `scripts/benchmark_webcam_open.py` | Benchmark webcam open speed with different backends |
 | `scripts/download_visdrone.py`     | Download the VisDrone2019-DET dataset               |
 | `scripts/build_yolo_dataset.py`    | Convert annotations to YOLO format                  |
@@ -140,7 +140,7 @@ Outputs are saved under `runs/detect/`. Copy or symlink the resulting `best.pt` 
 ### 4. Launch the webcam demo
 
 ```bash
-python scripts/run_webcam.py --source 0
+python scripts/run_monitoring.py --source 0
 ```
 
 ## Repository structure

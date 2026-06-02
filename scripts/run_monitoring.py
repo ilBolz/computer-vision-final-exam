@@ -1,9 +1,9 @@
 """
-Live webcam demo for real-time traffic monitoring.
+Real-time traffic monitoring demo.
 
 Usage:
-    python scripts/run_webcam.py --source 0
-    python scripts/run_webcam.py --source path/to/video.mp4
+    python scripts/run_monitoring.py --source 0
+    python scripts/run_monitoring.py --source path/to/video.mp4
 """
 import sys
 from pathlib import Path
