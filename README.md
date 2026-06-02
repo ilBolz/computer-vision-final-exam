@@ -212,9 +212,7 @@ python scripts/run_monitoring.py --source 0
 ├── demo/
 │   └── traffic_demo.mp4   # Sample aerial traffic video for testing
 ├── docs/
-│   ├── results/           # Screenshots and evaluation plots
-│   ├── technical_analysis.md
-│   └── technical_analysis.pdf
+│   └── results/           # Screenshots
 ├── models/
 │   ├── best.pt            # Trained traffic weights (included in repo)
 │   └── yolov8n.pt         # COCO fallback (included in repo)
@@ -264,9 +262,3 @@ Ignored classes: `ignored regions`, `people`, `tricycle`, `awning-tricycle`, `ot
 - **"Cannot open video source"**: try a different index (`--source 0`, `--source 1`, `--source 2`) or use a video file path.
 - **Black / frozen frames**: launch with `--native` to skip forced resolution/fps settings.
 
-## Technical documentation
-
-The full methodology, experimental results, failure analysis and ethical considerations are in:
-
-- `docs/technical_analysis.md` (source)
-- `docs/technical_analysis.pdf` (deliverable)
