@@ -1,14 +1,4 @@
-"""
-Convert VisDrone2019-DET annotations to YOLO format for traffic detection.
-
-Creates multi-class dataset (7 traffic classes) with normalized bbox labels.
-Output structure:
-    data/processed/yolo/{train,val,test}/images
-    data/processed/yolo/{train,val,test}/labels
-
-Filtered classes:
-    0: pedestrian, 1: bicycle, 2: car, 3: van, 4: truck, 5: bus, 6: motor
-"""
+"""Build YOLO dataset from VisDrone annotations."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -29,13 +19,7 @@ random.seed(42)
 
 
 def build_yolo_dataset(raw_dir: Path, output_dir: Path):
-    """
-    Build YOLO-formatted dataset from VisDrone raw data.
-
-    Args:
-        raw_dir: Path to extracted VisDrone dataset (e.g., data/raw/visdrone).
-        output_dir: Path to save YOLO dataset.
-    """
+    """Convert VisDrone to YOLO format."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     splits = {

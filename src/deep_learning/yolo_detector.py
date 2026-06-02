@@ -1,9 +1,4 @@
-"""
-Ultralytics YOLOv8n wrapper for multi-class traffic detection.
-
-Supports fine-tuned traffic models and falls back to COCO-pretrained
-yolov8n.pt if no custom weights are available.
-"""
+"""YOLOv8n wrapper for traffic detection."""
 
 from pathlib import Path
 
@@ -14,49 +9,27 @@ from src.config import YOLO, YOLO_TRAFFIC_MODEL_PATH, YOLO_TRAFFIC_MODEL_FALLBAC
 
 
 class YOLOTrafficDetector:
-    """YOLOv8n wrapper for vehicle and pedestrian detection."""
-
     def __init__(self, model_path=None, conf_threshold=None, nms_threshold=None):
-        """
-        Initialize detector.
-
-        Args:
-            model_path: Path to YOLO weights. If None, tries traffic model
-                        then COCO-pretrained fallback.
-            conf_threshold: Confidence threshold (default from config).
-            nms_threshold: NMS IoU threshold (default from config).
-        """
+        """Load YOLO model with fallback to COCO weights."""
         self.conf_threshold = conf_threshold or YOLO.get("conf_threshold", 0.5)
         self.nms_threshold = nms_threshold or YOLO.get("nms_threshold", 0.4)
 
-        # Lazy import to avoid heavy load at import time
         from ultralytics import YOLO as YOLOModel
 
         model_path = self._resolve_model_path(model_path)
         self.model = YOLOModel(model_path)
 
     def _resolve_model_path(self, model_path):
-        """Resolve model path with hierarchical fallback."""
         if model_path is not None and Path(model_path).exists():
             return model_path
         if YOLO_TRAFFIC_MODEL_PATH.exists():
             return str(YOLO_TRAFFIC_MODEL_PATH)
         if YOLO_TRAFFIC_MODEL_FALLBACK.exists():
             return str(YOLO_TRAFFIC_MODEL_FALLBACK)
-        # Fallback to COCO-pretrained YOLOv8n
         return YOLO.get("model_name", "yolov8n.pt")
 
     def detect(self, image: np.ndarray) -> list:
-        """
-        Run detection on a single image.
-
-        Args:
-            image: BGR image (numpy array).
-
-        Returns:
-            List of detections [class_id, confidence, x, y, w, h]
-            in absolute xywh (center-based) coordinates.
-        """
+        """Run detection and return [class_id, conf, x, y, w, h] in absolute xywh."""
         results = self.model.predict(
             image,
             conf=self.conf_threshold,
@@ -78,9 +51,7 @@ class YOLOTrafficDetector:
         for box in boxes:
             cls_id = int(box.cls[0])
             conf = float(box.conf[0])
-            # xyxy format
             x1, y1, x2, y2 = box.xyxy[0].cpu().numpy()
-            # Convert to center-based xywh absolute
             x = (x1 + x2) / 2.0
             y = (y1 + y2) / 2.0
             w = x2 - x1

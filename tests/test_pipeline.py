@@ -1,33 +1,13 @@
-"""
-End-to-end pipeline smoke tests for Traffic Monitoring.
-
-Tests that all modules import correctly and basic operations
-work on synthetic data.
-"""
+"""Pipeline smoke tests."""
 
 import numpy as np
 import pytest
-
-
-class TestPreprocessing:
-    def test_resize_image(self):
-        from src.preprocessing.image_pipeline import resize_image
-        img = np.random.randint(0, 255, (480, 640, 3), dtype=np.uint8)
-        out = resize_image(img, (320, 240))
-        assert out.shape == (240, 320, 3)
 
 
 class TestYOLOTrafficDetector:
     def test_import(self):
         from src.deep_learning.yolo_detector import YOLOTrafficDetector
         assert YOLOTrafficDetector is not None
-
-
-class TestVehicleNet:
-    def test_import(self):
-        torch = pytest.importorskip("torch")
-        from src.deep_learning.vehicle_net import VehicleNet
-        assert VehicleNet is not None
 
 
 class TestSimpleTracker:

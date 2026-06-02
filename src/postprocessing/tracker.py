@@ -1,10 +1,4 @@
-"""
-Simple object tracker for traffic counting.
-
-Implements a centroid/IOU-based tracker that maintains object IDs
-across frames and triggers counting events when objects cross a
-virtual counting line.
-"""
+"""Simple IOU tracker with counting line."""
 
 from collections import defaultdict
 
@@ -12,32 +6,15 @@ import numpy as np
 
 
 class SimpleTracker:
-    """IOU-based tracker with counting logic."""
-
     def __init__(self, iou_threshold=0.3, max_missing=5):
-        """
-        Initialize tracker.
-
-        Args:
-            iou_threshold: Minimum IoU to match a detection to an existing track.
-            max_missing: Maximum frames a track can be missing before deletion.
-        """
+        """Init tracker."""
         self.iou_threshold = iou_threshold
         self.max_missing = max_missing
         self.next_id = 0
         self.tracks = {}  # id -> {centroid, bbox, missing_count, counted, class_id}
 
     def update(self, detections):
-        """
-        Update tracks with new detections.
-
-        Args:
-            detections: List of [class_id, confidence, x, y, w, h].
-
-        Returns:
-            List of active tracks, each as dict with keys:
-                id, class_id, bbox, centroid, counted.
-        """
+        """Update tracks with new detections."""
         new_centroids = []
         new_bboxes = []
         for det in detections:
@@ -50,7 +27,6 @@ class SimpleTracker:
         matched = set()
         used_tracks = set()
 
-        # Greedy matching by IoU
         for i, bbox in enumerate(new_bboxes):
             best_iou = 0.0
             best_tid = None
@@ -70,7 +46,6 @@ class SimpleTracker:
                 used_tracks.add(best_tid)
                 matched.add(i)
 
-        # Unmatched detections -> new tracks
         for i in range(len(new_bboxes)):
             if i not in matched:
                 self.tracks[self.next_id] = {
@@ -82,7 +57,6 @@ class SimpleTracker:
                 }
                 self.next_id += 1
 
-        # Unmatched tracks -> increment missing
         for tid in list(self.tracks.keys()):
             if tid not in used_tracks:
                 self.tracks[tid]["missing_count"] += 1
@@ -101,19 +75,7 @@ class SimpleTracker:
         ]
 
     def check_crossings(self, tracks, line_orientation="horizontal", line_ratio=0.5, img_h=720, img_w=1280):
-        """
-        Check which tracks have crossed the counting line and update counters.
-
-        Args:
-            tracks: Output from update().
-            line_orientation: 'horizontal' or 'vertical'.
-            line_ratio: Position of line as ratio (0-1).
-            img_h: Image height.
-            img_w: Image width.
-
-        Returns:
-            counts: Dict {class_id: increment} for this frame.
-        """
+        """Check line crossings and return count increments."""
         counts = defaultdict(int)
 
         if line_orientation == "horizontal":
@@ -122,10 +84,6 @@ class SimpleTracker:
                 if track["counted"]:
                     continue
                 _, cy = track["centroid"]
-                # Trigger when centroid crosses line from top to bottom
-                # Simple logic: if previously above and now below
-                # For simplicity in this exam project, we count once when
-                # the centroid passes the line (state stored in track).
                 if cy >= line_pos:
                     track["counted"] = True
                     counts[track["class_id"]] += 1
@@ -139,7 +97,6 @@ class SimpleTracker:
                     track["counted"] = True
                     counts[track["class_id"]] += 1
 
-        # Update internal track state for counted flag
         for track in tracks:
             tid = track["id"]
             if tid in self.tracks:

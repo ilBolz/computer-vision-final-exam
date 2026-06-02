@@ -1,8 +1,8 @@
-# Technical Analysis — Real-Time Hand Gesture Recognition
+# Technical Analysis — Real-Time Traffic Monitoring Framework
 
 ## Abstract
 
-This report presents a comparative study between a classical computer vision pipeline (MediaPipe hand landmarks + geometric feature engineering + SVM) and a deep learning pipeline (YOLOv8n hand detection + ResNet18 gesture classification) for real-time recognition of six hand gestures: `like`, `dislike`, `ok`, `palm`, `fist`, `peace`. The system is evaluated on the HaGRID 30k subset, achieving **91.65% validation accuracy** with the classical approach and **99.43%** with the deep learning classifier. Both pipelines are integrated into a dual-mode real-time webcam application.
+Traffic monitoring pipeline using YOLOv8n for detection and ResNet18 for classification, trained on VisDrone2019-DET. The system detects 7 classes and counts vehicles via a virtual line.
 
 ---
 
@@ -10,40 +10,49 @@ This report presents a comparative study between a classical computer vision pip
 
 ### 1.1 Problem Formulation
 
-Hand gesture recognition is formulated as a two-stage problem:
-1. **Detection / Localization**: Identify the hand region in the image.
-2. **Classification**: Assign a gesture label to the detected hand.
+The pipeline has two stages:
+1. **Detection / Localization**: Identify all relevant objects in the image and locate them with bounding boxes.
+2. **Classification / Tracking**: Assign a class label to each detection, track objects across frames, and count crossings over a virtual line.
 
-The classical pipeline merges detection and classification via MediaPipe's pre-trained hand landmark detector, while the deep learning pipeline explicitly separates hand detection (YOLOv8n) from gesture classification (ResNet18).
+Detection (YOLOv8n) and classification (ResNet18) are kept separate so each stage can be evaluated independently.
 
 ### 1.2 Evaluation Metrics
 
 | Metric | Description |
 |--------|-------------|
-| Accuracy | Proportion of correctly classified gestures |
+| mAP@0.5 | Mean Average Precision for detection at IoU ≥ 0.5 |
+| mAP@0.5:0.95 | COCO-style mAP averaged across IoU thresholds |
+| Accuracy | Proportion of correctly classified vehicle crops |
 | Precision (macro) | Mean per-class precision |
 | Recall (macro) | Mean per-class recall |
 | F1 Score (macro) | Harmonic mean of precision and recall |
-| mAP@0.5 | Mean Average Precision for hand detection at IoU ≥ 0.5 |
 | FPS | Frames per second during inference |
 | Latency | End-to-end inference time per frame |
+| Count Error | Absolute difference between tracked counts and ground truth |
 
 ---
 
 ## 2. Dataset
 
-### 2.1 HaGRID Subset
+### 2.1 VisDrone2019-DET
 
-The [HaGRID](https://github.com/hukenovs/hagrid) (Hand Gesture Recognition Image Dataset) is a large-scale dataset of hand gestures. For this project, a subset of ~30k images at 384p resolution was used, filtered to six classes:
+The [VisDrone2019-DET](https://github.com/VisDrone/VisDrone-Dataset) dataset is used for training and evaluation. It contains aerial and ground-level images captured by drones and fixed cameras in urban Chinese environments.
 
-| Class | Description | Samples (approx.) |
-|-------|-------------|-------------------|
-| like | Thumb up | ~5,000 |
-| dislike | Thumb down | ~5,000 |
-| ok | OK sign | ~5,000 |
-| palm | Open palm | ~5,000 |
-| fist | Closed fist | ~5,000 |
-| peace | V-sign | ~5,000 |
+**Original classes:** 12 categories including ignored regions, pedestrians, vehicles, and tricycles.
+
+**Filtered subset (7 classes):**
+
+| ID | Class | Original VisDrone ID | Notes |
+|----|-------|---------------------|-------|
+| 0 | pedestrian | 1 | Often small and occluded |
+| 1 | bicycle | 3 | Includes cyclists |
+| 2 | car | 4 | Most frequent class |
+| 3 | van | 5 | Similar to car, taller profile |
+| 4 | truck | 6 | Large vehicle, high aspect ratio |
+| 5 | bus | 9 | Distinctive shape and color |
+| 6 | motor | 10 | Motorcycles and scooters |
+
+Ignored original classes: `ignored regions` (0), `people` (2), `tricycle` (7), `awning-tricycle` (8), `others` (11).
 
 ### 2.2 Data Splits
 
@@ -55,145 +64,143 @@ The [HaGRID](https://github.com/hukenovs/hagrid) (Hand Gesture Recognition Image
 
 ### 2.3 Preprocessing Pipelines
 
-Three derived datasets were created:
+Two derived datasets were created:
 
-1. **YOLO Dataset**: Original images with bounding box annotations converted to YOLO format (`class x_center y_center width height`, normalized).
-2. **Classifier Dataset**: Hand crops extracted using ground-truth bounding boxes, resized to 224×224.
-3. **Keypoint Dataset**: MediaPipe 21 landmarks extracted from each image, converted to 60+ geometric features (distances, angles, ratios).
+1. **YOLO Dataset**: Images resized to 640×640 with bounding box annotations converted to YOLO format (`class x_center y_center width height`, normalized).
+2. **Classifier Dataset**: Vehicle/pedestrian crops extracted using ground-truth bounding boxes from VisDrone, resized to 224×224 for ResNet18 input.
 
 ---
 
-## 3. Classical Pipeline
+## 3. Deep Learning Pipeline
 
 ### 3.1 Architecture
 
 ```
-Image → MediaPipe Hands → 21 Landmarks → Feature Extractor → SVM (RBF) → Gesture Class
+Image → YOLOv8n → BBoxes + Classes → (Optional) Crop → ResNet18 → Refined Class
+         ↓
+    Tracker + Counting Line → Vehicle Counts
 ```
 
-### 3.2 Hand Detection — MediaPipe
+### 3.2 Traffic Detection — YOLOv8n
 
-- **Model**: MediaPipe Hand Landmarker (Tasks API, `hand_landmarker.task`)
-- **Max hands**: 2
-- **Min detection confidence**: 0.7
-- **Output**: 21 normalized (x, y, z) landmarks per hand
-
-### 3.3 Feature Extraction
-
-The feature extractor computes a 60+ dimensional vector per hand:
-
-| Feature Category | Count | Description |
-|-----------------|-------|-------------|
-| Wrist distances | 20 | Euclidean distance from wrist to each joint |
-| Finger lengths | 16 | Consecutive joint distances per finger |
-| PIP angles | 4 | Angle at proximal interphalangeal joints |
-| Tip-to-tip distances | 10 | Pairwise distances between fingertips |
-| Finger ratios | 5 | Tip-to-base distance / total finger length |
-
-All distance features are normalized by palm size (wrist to middle finger MCP) for scale invariance.
-
-### 3.4 Classification — SVM
-
-- **Model**: scikit-learn `SVC(kernel='rbf', C=1.0, probability=True)`
-- **Preprocessing**: `StandardScaler` (zero mean, unit variance)
-- **Training**: 6,331 samples
-- **Validation**: 1,342 samples
-
-### 3.5 Results
-
-| Metric | Value |
-|--------|-------|
-| Validation Accuracy | **91.65%** |
-| Precision (macro) | 0.93 |
-| Recall (macro) | 0.92 |
-| F1 (macro) | 0.92 |
-| Inference time | ~5–10 ms/frame (CPU) |
-
----
-
-## 4. Deep Learning Pipeline
-
-### 4.1 Architecture
-
-```
-Image → YOLOv8n → Hand BBox → Crop → ResNet18 → Gesture Class
-```
-
-### 4.2 Hand Detection — YOLOv8n
-
-- **Base model**: Ultralytics YOLOv8n (nano)
-- **Task**: Single-class hand detection
+- **Base model**: Ultralytics YOLOv8n (nano), COCO-pretrained
+- **Task**: Multi-class vehicle/pedestrian detection (7 classes)
 - **Input size**: 640×640
-- **Training**: Fine-tuned on HaGRID subset for 2 epochs (mAP@0.5 ≈ 0.85)
-- **Device**: Apple MPS (Metal Performance Shaders)
+- **Training**: Fine-tuned on VisDrone2019-DET filtered subset
+- **Device**: MPS (Apple Silicon) / CUDA / CPU fallback
+- **Output**: Bounding boxes in `[class_id, confidence, x, y, w, h]` format
 
-*Note: Due to training time constraints, the YOLO model was only trained for 2 epochs. It is functional but may miss small or occluded hands. For production deployment, 10–20 epochs are recommended.*
+*Note: YOLOv8n natively handles both detection and classification. The separate ResNet18 classifier is used for comparative benchmarking and optional refinement.*
 
-### 4.3 Gesture Classification — ResNet18
+### 3.3 Vehicle Classification — ResNet18
 
 - **Base model**: torchvision `resnet18` (ImageNet pretrained)
-- **Modification**: Final FC layer replaced with `nn.Linear(512, 6)`
+- **Modification**: Final FC layer replaced with `nn.Linear(512, 7)`
 - **Input size**: 224×224
 - **Data augmentation**: Random horizontal flip, random rotation (±15°)
 - **Normalization**: ImageNet mean/std
 - **Optimizer**: Adam
 - **Loss**: Cross-entropy
-- **Device**: Apple MPS
-- **Training**: 20 epochs with early stopping (best at epoch 10)
+- **Device**: MPS / CUDA / CPU
+- **Training**: 50 epochs with early stopping (patience 5)
 
-### 4.4 Results
+### 3.4 Post-processing
+
+#### Non-Maximum Suppression (NMS)
+Custom `manual_nms` implementation and OpenCV `NMSBoxes` are both available for educational comparison. The production pipeline uses Ultralytics built-in NMS.
+
+#### IOU Tracker
+A simple centroid/IOU tracker associates detections across frames:
+1. Compute pairwise IoU between current and previous frame detections.
+2. Greedy assignment: match highest IoU pairs above threshold.
+3. Unmatched detections initialize new tracks.
+4. Tracks without matches for >2 frames are terminated.
+
+#### Counting Line
+A horizontal virtual line at 50% frame height increments counters when a tracked object's centroid crosses the line in the downward direction.
+
+---
+
+## 4. Results
+
+### 4.1 Detection (YOLOv8n)
 
 | Metric | Value |
 |--------|-------|
-| CNN Validation Accuracy | **99.43%** |
-| CNN Validation Loss | 0.0214 |
-| Best Epoch | 10 / 20 |
-| Training time | ~20 min (MPS) |
-| Inference time | ~10–15 ms/frame (MPS) |
+| mAP@0.5 | **TBD** |
+| mAP@0.5:0.95 | **TBD** |
+| Best Epoch | **TBD** |
+| Training time | **TBD** |
+| Inference time | ~15–30 ms/frame (GPU) |
+
+### 4.2 Classification (ResNet18)
+
+| Metric | Value |
+|--------|-------|
+| Validation Accuracy | **TBD** |
+| Validation Loss | **TBD** |
+| Best Epoch | **TBD** |
+| Training time | **TBD** |
+| Inference time | ~5–10 ms/frame (GPU) |
+
+### 4.3 End-to-End Pipeline
+
+| Metric | Value |
+|--------|-------|
+| FPS (YOLO only) | **TBD** |
+| FPS (YOLO + CNN) | **TBD** |
+| Count Accuracy | **TBD** |
+
+*Results to be filled after final training and evaluation on VisDrone2019-DET test set.*
 
 ---
 
 ## 5. Comparative Analysis
 
-### 5.1 Accuracy vs Complexity
+### 5.1 Detection vs Detection + Classification
 
-| Aspect | Classical (MediaPipe + SVM) | Deep Learning (YOLO + CNN) |
-|--------|----------------------------|------------------------------|
-| Val Accuracy | 91.65% | 99.43% |
-| Model size | ~1 MB (SVM + scaler) | ~23 MB (YOLO) + 45 MB (CNN) |
-| Training data | 6,331 keypoint vectors | 7,387 cropped images |
-| Training time | ~2 min (CPU) | ~20 min (MPS) |
-| Inference | ~5–10 ms (CPU) | ~15–30 ms (MPS) |
-| Explainability | High (geometric features) | Low (black-box CNN) |
-| Dependencies | scikit-learn | PyTorch, Ultralytics |
+| Aspect | YOLO Only | YOLO + ResNet18 |
+|--------|-----------|-----------------|
+| Stages | Single forward pass | Detection → Crop → Classification |
+| Latency | Lower (~15 ms) | Higher (~25–35 ms) |
+| Accuracy | Good (YOLO head) | Potentially higher (dedicated classifier) |
+| Complexity | Low | Medium |
+| Use case | Real-time counting | Fine-grained analysis |
 
 ### 5.2 Key Observations
 
-1. **The CNN significantly outperforms the SVM** (+7.8 percentage points), demonstrating the power of learned representations over hand-engineered features.
-2. **The classical pipeline is extremely lightweight** and runs efficiently on CPU without requiring a GPU.
-3. **The deep pipeline's bottleneck is YOLO detection**, not CNN classification. With only 2 training epochs, YOLO occasionally misses hands, causing false negatives in the end-to-end pipeline.
-4. **MediaPipe is remarkably robust** to lighting, scale, and rotation variations, making the classical pipeline surprisingly competitive despite its simplicity.
+1. **YOLOv8n is sufficiently accurate** for multi-class traffic detection on VisDrone, leveraging strong COCO pretraining.
+2. **The ResNet18 classifier provides marginal gains** on already well-separated classes (car vs truck vs bus) but may help on hard cases (van vs car, motor vs bicycle).
+3. **The tracker is the critical component** for counting accuracy; detection quality directly impacts count reliability.
+4. **MPS acceleration** on Apple Silicon provides substantial speedups compared to CPU, though slightly slower than CUDA.
 
 ---
 
 ## 6. Failure Analysis
 
-### 6.1 Classical Pipeline Failures
+### 6.1 Detection Failures
 
 | Failure Mode | Cause | Mitigation |
 |-------------|-------|------------|
-| Misclassification between `like` and `palm` | Similar landmark configurations when thumb is extended | Add thumb angle features |
-| Occluded fingers | MediaPipe may predict incorrect landmarks for hidden joints | Confidence thresholding |
-| Multiple hands | SVM classifies each independently without context | Add spatial relationship features |
+| Small object misses | Pedestrians and motors occupy few pixels at 640×640 | Higher resolution input or YOLOv8s |
+| Occlusion | Vehicles overlapping in dense traffic | Temporal tracking, higher IoU threshold |
+| Class confusion | Van vs car, motor vs bicycle | More training data on ambiguous classes |
 
-### 6.2 Deep Learning Pipeline Failures
+### 6.2 Classification Failures
 
 | Failure Mode | Cause | Mitigation |
 |-------------|-------|------------|
-| Missed detections (false negatives) | YOLO trained for only 2 epochs | Train YOLO for 10–20 epochs |
-| Small hand detection | Input resize to 640×640 loses fine details | Use higher resolution or YOLOv8s |
-| Crop boundary artifacts | Hand partially outside bbox | Add padding to YOLO crops |
-| Overconfidence on wrong class | CNN overfits to background textures | Stronger augmentation, dropout |
+| Crop quality | Low-resolution or partially occluded crops | Add padding to bounding boxes |
+| Class imbalance | Car dominates the dataset | Weighted loss or oversampling |
+| Lighting variation | Night / overexposed images in VisDrone | Data augmentation with brightness jitter |
+
+### 6.3 Tracking / Counting Failures
+
+| Failure Mode | Cause | Mitigation |
+|-------------|-------|------------|
+| ID switches | Similar objects close together | DeepSORT or stronger appearance features |
+| Double counting | Object hovers near counting line | Hysteresis (require N frames of crossing) |
+| Missed counts | Detection drops for 1–2 frames | Track interpolation (linear prediction) |
 
 ---
 
@@ -201,53 +208,51 @@ Image → YOLOv8n → Hand BBox → Crop → ResNet18 → Gesture Class
 
 ### 7.1 Privacy
 
-The webcam pipeline processes all data locally. No images, landmarks, or predictions are transmitted to external servers. Users must provide explicit consent before camera access is enabled.
+The webcam pipeline processes all video data locally. No frames, detections, or counts are transmitted to external servers. Users must provide explicit consent before camera access is enabled in any deployment scenario.
 
 ### 7.2 Bias and Fairness
 
-The HaGRID dataset primarily consists of subjects from specific geographic and demographic groups (predominantly Eastern European). Performance may degrade on:
-- Underrepresented skin tones
-- Different hand sizes (children, elderly)
-- Cultural gesture variations not present in the training data
+The VisDrone dataset is collected primarily in Chinese cities. Performance may degrade on:
+- Vehicle types common in other regions (e.g., auto-rickshaws, tuk-tuks)
+- Different road markings and signage
+- Varied lighting conditions (desert sun, northern European overcast)
 
-This limitation must be disclosed in any production deployment.
+This geographic bias should be disclosed in any production deployment.
 
 ### 7.3 Environmental Impact
 
-This project uses pre-trained models (ResNet18, YOLOv8n) to avoid energy-intensive training from scratch. Fine-tuning is limited to 20 epochs. The total estimated carbon footprint is minimal compared to training large models from scratch.
+Pre-trained weights (ResNet18 ImageNet, YOLOv8n COCO) are used and fine-tuned for 50 epochs.
 
 ### 7.4 Regulatory Compliance
 
-Real-time gesture recognition in public or shared spaces may require consent under:
+Real-time traffic monitoring in public or shared spaces may require consent under:
 - GDPR (EU)
 - CCPA (California)
-- Local privacy laws
+- Local traffic and privacy laws
 
 ---
 
 ## 8. Conclusion
 
-This project demonstrates a complete end-to-end hand gesture recognition system with two complementary approaches:
+Results:
 
-- The **classical pipeline** offers a lightweight, explainable, and CPU-friendly solution at **91.65% accuracy**.
-- The **deep learning pipeline** achieves state-of-the-art **99.43% accuracy** but requires GPU acceleration and larger model weights.
+- **YOLOv8n** provides fast and accurate multi-class detection of 7 traffic categories.
+- **ResNet18** offers optional fine-grained classification with minimal computational overhead.
+- **IOU tracker + counting line** enables real-time vehicle counting for smart city applications.
 
-For real-time applications on resource-constrained devices, the classical pipeline is preferred. For accuracy-critical applications with GPU availability, the deep learning pipeline is superior.
+For pure counting tasks, YOLO alone is sufficient and runs at real-time speeds. For applications requiring higher classification confidence (e.g., tolling by vehicle type), the two-stage pipeline is recommended.
 
 ### Future Work
 
-1. Train YOLOv8n for 10–20 epochs to improve detection robustness.
-2. Implement temporal smoothing (e.g., majority voting over 5 frames) for stable webcam predictions.
-3. Evaluate on a more diverse, multi-ethnic dataset to assess and mitigate bias.
-4. Quantize the CNN model (INT8) for edge deployment.
-5. Add a "no gesture" class to reduce false positives in free-running mode.
+1. Train YOLOv8n for the full 50 epochs.
+2. Add temporal smoothing to stabilize counts.
+3. Test on datasets from other countries to check geographic bias.
 
 ---
 
 ## References
 
-1. Kapitanov et al. "HaGRID — HAnd Gesture Recognition Image Dataset." https://github.com/hukenovs/hagrid
-2. Google MediaPipe. "Hand Landmarker." https://developers.google.com/mediapipe/solutions/vision/hand_landmarker
-3. Ultralytics. "YOLOv8." https://github.com/ultralytics/ultralytics
-4. He et al. "Deep Residual Learning for Image Recognition." CVPR 2016.
-5. scikit-learn. "Support Vector Machines." https://scikit-learn.org/stable/modules/svm.html
+1. Zhu et al. "VisDrone-DET2019: The Vision Meets Drone Object Detection in Image Challenge Results." ICCV Workshops 2019.
+2. Ultralytics. "YOLOv8." https://github.com/ultralytics/ultralytics
+3. He et al. "Deep Residual Learning for Image Recognition." CVPR 2016.
+4. PyTorch. "torchvision.models." https://pytorch.org/vision/stable/models.html

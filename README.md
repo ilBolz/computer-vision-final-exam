@@ -1,213 +1,209 @@
-# Real-Time Traffic Monitoring Framework
+# Real-Time Traffic Monitoring
 
-A modular computer vision system using deep learning (YOLOv8n multi-class detection + ResNet18 vehicle classification) for real-time traffic monitoring and vehicle counting.
+Real-time traffic monitoring system that detects 7 vehicle/pedestrian categories using YOLOv8n. Includes a live webcam pipeline with a virtual counting line.
 
-[![Python 3.10+](https://img.shields.io/badge/python-3.10+-blue.svg)](https://www.python.org/downloads/)
-[![OpenCV](https://img.shields.io/badge/opencv-4.8+-green.svg)](https://opencv.org/)
-[![PyTorch](https://img.shields.io/badge/pytorch-2.0+-red.svg)](https://pytorch.org/)
+## What it does
 
----
+- **Detection**: locates pedestrians, bicycles, cars, vans, trucks, buses and motorcycles in real time
+- **Tracking**: keeps object IDs across frames using an IoU-based tracker
+- **Counting**: counts vehicles crossing a configurable virtual line
 
-## Overview
+## Tech stack
 
-This project implements a complete traffic monitoring pipeline for 7 vehicle/pedestrian classes using deep learning:
+- Python 3.10+
+- OpenCV (video capture, NMS, filtering)
+- Ultralytics YOLOv8 (object detection)
+- scikit-learn (evaluation metrics)
+- pytest (test suite)
 
-| Stage | Deep Learning (YOLOv8 + CNN) |
-|-------|------------------------------|
-| Preprocessing | Resize 640×640, normalization |
-| Features | Learned CNN features (ResNet18) |
-| Detection | YOLOv8n multi-class detector |
-| Classification | ResNet18 fine-tuned classifier |
-| Post-processing | NMS + IOU tracker + counting line |
-| Evaluation | mAP@0.5, Accuracy, FPS |
+## Requirements
 
-### Design Principles
-- **Modularity** — Swap backbones without touching visualization or metrics logic
-- **Explainability** — Custom IoU and NMS implementations with mathematical transparency
-- **Real-time** — Webcam pipeline with vehicle counting and HUD overlay
+- Python 3.10 or newer
+- Git
+- Webcam (for live mode) or a video file
+- ~3 GB free space (dataset + environment + models)
+- (Optional but recommended) NVIDIA GPU with CUDA for training and smoother inference
 
----
+## Setup
 
-## Quick Start
-
-### 1. Setup Environment
+### 1. Clone the repository
 
 ```bash
-# Option A: Conda
-conda env create -f environment.yml
-conda activate cv-exam
+git clone https://github.com/<your-username>/computer_vision_exam.git
+cd computer_vision_exam
+```
 
-# Option B: venv
-python -m venv venv
-source venv/bin/activate
+### 2. Create the virtual environment
+
+Windows:
+
+```bash
+python -m venv .venv
+.venv\Scripts\activate
 pip install -r requirements.txt
 ```
 
-### 2. Download Dataset
+Linux / macOS:
 
 ```bash
-# Download VisDrone2019-DET (~1.5GB) — free, no registration required
+python -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
+```
+
+### 3. Verify the installation
+
+```bash
+pytest
+```
+
+All tests should pass.
+
+## Quick start
+
+> **Note**: the very first time you run the webcam pipeline, the YOLO model may take **20-30 seconds** to load. This is normal and depends on your hardware.
+
+### Webcam (built-in — index 0)
+
+```bash
+python scripts/run_webcam.py --source 0
+```
+
+### Webcam (external / USB — index 1)
+
+```bash
+python scripts/run_webcam.py --source 1
+```
+
+### Video file
+
+```bash
+python scripts/run_webcam.py --source path/to/video.mp4
+```
+
+### Controls while running
+
+- `s` → save screenshot to `docs/results/screenshot.jpg`
+- `q` → quit
+
+### Model weights
+
+- **`models/best.pt`** — trained traffic-specific weights (VisDrone, 7 traffic classes). **This file is included in the repository** so the application works out of the box.
+- **`yolov8n.pt`** — COCO pre-trained weights (fallback). Not included; Ultralytics downloads it automatically on first use only if `best.pt` is missing.
+
+### Native webcam mode
+
+If your webcam freezes or shows black frames with forced resolutions, launch with `--native` to use the camera's default settings:
+
+```bash
+python scripts/run_webcam.py --source 1 --native
+```
+
+## Available scripts
+
+| Script                             | Purpose                                             |
+| ---------------------------------- | --------------------------------------------------- |
+| `scripts/run_webcam.py`            | Live webcam / video demo (default source 0)         |
+| `scripts/benchmark_webcam_open.py` | Benchmark webcam open speed with different backends |
+| `scripts/download_visdrone.py`     | Download the VisDrone2019-DET dataset               |
+| `scripts/build_yolo_dataset.py`    | Convert annotations to YOLO format                  |
+| `scripts/train_yolo.py`            | Train the YOLOv8n traffic detector                  |
+
+## Full pipeline (from scratch)
+
+If you start without models, follow these steps to train them.
+
+### 1. Download the VisDrone2019-DET dataset
+
+```bash
 python scripts/download_visdrone.py --output data/raw/visdrone
 ```
 
-### 3. Build Processed Datasets
+Downloads ~1.5 GB of images and annotations.
+
+### 2. Build the structured datasets
 
 ```bash
-# YOLO format for traffic detection (7 classes)
+# YOLO format for the detector
 python scripts/build_yolo_dataset.py
-
-# Vehicle/pedestrian crops for CNN classifier
-python scripts/build_classifier_dataset.py
 ```
 
-### 4. Train Models
+### 3. Train the models
 
 ```bash
-# Deep Learning: YOLOv8n traffic detector
+# YOLOv8n (~20-30 min on GPU, much longer on CPU)
 python scripts/train_yolo.py --epochs 20
-
-# Deep Learning: ResNet18 vehicle classifier
-python scripts/train_classifier.py --epochs 20
 ```
 
-### 5. Run Inference
+Outputs are saved under `runs/detect/`. Copy or symlink the resulting `best.pt` to `models/best.pt` if you want it loaded automatically.
+
+### 4. Launch the webcam demo
 
 ```bash
-# Evaluation on test images
-python -m src.evaluation.compare --mode images --images img1.jpg img2.jpg --output docs/results/
-
-# Evaluation on classifier test dataset
-python -m src.evaluation.compare --mode dataset --output docs/results/
-```
-
-### 6. Live Webcam / Video Demo
-
-```bash
-# Deep mode (YOLO + CNN, GPU recommended)
 python scripts/run_webcam.py --source 0
-
-# On a video file
-python scripts/run_webcam.py --source path/to/video.mp4
-
-# Controls:
-#   's' → screenshot
-#   'q' → quit
 ```
 
----
-
-## Repository Structure
+## Repository structure
 
 ```
-computer_vision_exam/
 ├── data/
-│   ├── raw/                   # VisDrone subset (gitignored)
-│   ├── processed/
-│   │   ├── yolo/              # YOLO format dataset
-│   │   └── classifier/        # 224×224 vehicle crops
-│   └── annotations/           # JSON splits
+│   ├── raw/               # VisDrone dataset (gitignored)
+│   └── processed/         # YOLO dataset (gitignored)
 ├── models/
-│   ├── vehicle_cnn.pt         # ResNet18 weights
-│   └── yolov8n_traffic.pt     # Fine-tuned YOLO (gitignored)
+│   └── best.pt            # Trained YOLO weights (gitignored)
 ├── src/
-│   ├── config.py              # Centralized configuration
-│   ├── preprocessing/         # Image pipelines, YOLO formatter
-│   ├── deep_learning/         # YOLOv8 + CNN pipeline
-│   ├── postprocessing/        # IoU, NMS, Tracker
-│   ├── evaluation/            # Metrics, benchmark, compare
-│   ├── webcam/                # Streamer + live pipeline
-│   └── utils/                 # Visualization, logging
-├── tests/                     # pytest suite
-├── scripts/                   # Entrypoints
-├── notebooks/                 # Jupyter demos
+│   ├── config.py          # Centralized configuration
+│   ├── preprocessing/     # VisDrone → YOLO format conversion
+│   ├── deep_learning/     # YOLO detector & training wrapper
+│   ├── postprocessing/    # IoU, tracker, counting line
+│   ├── webcam/            # Streamer and live pipeline
+│   └── utils/             # Drawing utilities (bboxes, counters)
+├── scripts/               # Entrypoints for training, building, webcam, benchmarks
+├── tests/                 # pytest suite
 ├── docs/
-│   ├── technical_analysis.md  # Source for PDF deliverable
-│   └── results/               # Comparison reports (gitignored)
+│   ├── results/           # Generated screenshots and evaluation plots
+│   ├── technical_analysis.md
+│   └── technical_analysis.pdf
 ├── requirements.txt
-├── environment.yml
-├── PROJECT_PLAN.md            # Implementation roadmap
 └── README.md
 ```
 
----
+## Dataset
 
-## Dataset: VisDrone2019-DET
+**VisDrone2019-DET** — [GitHub](https://github.com/VisDrone/VisDrone-Dataset)
 
-**Source:** https://github.com/VisDrone/VisDrone-Dataset  
-**License:** Free for academic/research use  
-**Size:** ~10,209 images (train/val/test-dev)  
-**Annotations:** Bounding boxes in `[x, y, w, h, score, category, truncation, occlusion]` format
+The original dataset has 12 classes. This project filters 7:
 
-### Filtered Traffic Classes (7 categories)
+| ID  | Class      | Original VisDrone ID |
+| --- | ---------- | -------------------- |
+| 0   | pedestrian | 1                    |
+| 1   | bicycle    | 3                    |
+| 2   | car        | 4                    |
+| 3   | van        | 5                    |
+| 4   | truck      | 6                    |
+| 5   | bus        | 9                    |
+| 6   | motor      | 10                   |
 
-| ID | Class | Original VisDrone ID |
-|----|-------|---------------------|
-| 0 | pedestrian | 1 |
-| 1 | bicycle | 3 |
-| 2 | car | 4 |
-| 3 | van | 5 |
-| 4 | truck | 6 |
-| 5 | bus | 9 |
-| 6 | motor | 10 |
+Ignored classes: `ignored regions`, `people`, `tricycle`, `awning-tricycle`, `others`.
 
-Ignored original classes: `ignored regions` (0), `people` (2), `tricycle` (7), `awning-tricycle` (8), `others` (11).
+## Notes and troubleshooting
 
----
+- **First run is slow**: YOLO weights (`yolov8n.pt` or `best.pt`) are loaded at startup. Expect 20-30 seconds before the video window appears.
+- **No webcam data leaves the PC**: everything is processed locally.
+- **VisDrone is collected in China**: performance may vary in other countries or lighting conditions.
 
-## Results
+### Windows-specific webcam issues
 
-### Deep Learning Pipeline (YOLOv8 + ResNet18)
+- **Webcam index 1 (USB) is very slow to open**: this is a known OpenCV behaviour on Windows with the default DirectShow backend. The project already applies the `cv2.CAP_DSHOW` fix automatically in `src/webcam/streamer.py`. If you still experience slowness, run the benchmark to compare backends:
+  ```bash
+  python scripts/benchmark_webcam_open.py --source 1 --runs 3
+  ```
+- **"Cannot open video source"**: try a different index (`--source 0`, `--source 1`, `--source 2`) or use a video file path.
+- **Black / frozen frames**: launch with `--native` to skip forced resolution/fps settings.
 
-| Metric | Value |
-|--------|-------|
-| CNN Validation Accuracy | **TBD** |
-| YOLO mAP@0.5 | **TBD** |
-| YOLO mAP@0.5:0.95 | **TBD** |
-| Inference Time | ~15-30 ms/frame (GPU) |
+## Technical documentation
 
-*Results on VisDrone2019-DET test set (7 classes: pedestrian, bicycle, car, van, truck, bus, motor).*
+The full methodology, experimental results, failure analysis and ethical considerations are in:
 
-### End-to-End Evaluation
-
-Run evaluation:
-
-```bash
-python -m src.evaluation.compare --mode dataset --output docs/results/
-```
-
-Generates:
-- `evaluation_report.json` — FPS, latency, total detections
-- `classification_metrics.json` — Accuracy, Precision, Recall, F1
-- `confusion_deep.jpg` — Confusion matrix
-
----
-
-## Technical Analysis
-
-The full methodology, experimental results, failure analysis, and ethical considerations are documented in:
-
-- **Source:** `docs/technical_analysis.md`
-- **PDF:** `docs/technical_analysis.pdf` (auto-generated from markdown)
-
----
-
-## Ethical Considerations
-
-- **Privacy** — The webcam pipeline captures video locally. No frames or detections are transmitted to external servers. Obtain user consent before enabling camera access.
-- **Bias** — The VisDrone dataset is collected from specific cities in China. Performance may degrade on underrepresented vehicle types, lighting conditions, or road environments.
-- **Environmental Impact** — This project uses pre-trained weights (ResNet18, YOLOv8n) to avoid energy-intensive training from scratch. Fine-tuning is limited to 50 epochs.
-- **Regulatory Compliance** — Real-time traffic monitoring in public or shared spaces may require consent under GDPR, CCPA, or local privacy laws.
-
----
-
-## License
-
-[Add your license here]
-
----
-
-## Acknowledgments
-
-- [VisDrone](https://github.com/VisDrone/VisDrone-Dataset) dataset authors (Zhu et al.)
-- Ultralytics for YOLOv8
-- PyTorch and torchvision teams
+- `docs/technical_analysis.md` (source)
+- `docs/technical_analysis.pdf` (deliverable)

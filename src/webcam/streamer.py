@@ -1,25 +1,12 @@
-"""
-OpenCV VideoCapture wrapper for webcam streaming.
+"""OpenCV VideoCapture wrapper."""
 
-Manages camera resolution, FPS, and graceful release.
-"""
-
+import sys
 import cv2
 
 
 class WebcamStreamer:
-    """Wrapper around cv2.VideoCapture."""
-
     def __init__(self, source=0, width=1280, height=720, fps=30):
-        """
-        Initialize webcam stream.
-
-        Args:
-            source: Camera index or video path.
-            width: Requested frame width.
-            height: Requested frame height.
-            fps: Requested FPS.
-        """
+        """Open video source."""
         self.source = source
         self.width = width
         self.height = height
@@ -27,19 +14,30 @@ class WebcamStreamer:
         self.cap = None
 
     def start(self):
-        """Open the video capture."""
-        self.cap = cv2.VideoCapture(self.source)
-        self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
-        self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
-        self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+        # Su Windows l'auto-backend per webcam USB (DirectShow) è molto lento
+        # ad aprirsi. Forziamo CAP_DSHOW quando siamo su Windows e la sorgente
+        # è un indice intero (webcam).
+        if sys.platform == "win32" and isinstance(self.source, int):
+            self.cap = cv2.VideoCapture(self.source, cv2.CAP_DSHOW)
+        else:
+            self.cap = cv2.VideoCapture(self.source)
+
+        if not self.cap.isOpened():
+            raise RuntimeError(f"Cannot open video source {self.source}")
+
+        if self.width > 0:
+            self.cap.set(cv2.CAP_PROP_FRAME_WIDTH, self.width)
+        if self.height > 0:
+            self.cap.set(cv2.CAP_PROP_FRAME_HEIGHT, self.height)
+        if self.fps > 0:
+            self.cap.set(cv2.CAP_PROP_FPS, self.fps)
+
         return self
 
     def read(self):
-        """Read a frame. Returns (success, frame)."""
         return self.cap.read()
 
     def release(self):
-        """Release the capture."""
         if self.cap:
             self.cap.release()
             self.cap = None

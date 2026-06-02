@@ -1,9 +1,4 @@
-"""
-Visualization utilities for traffic monitoring.
-
-Renders bounding boxes, class labels, count lines, and counters.
-Follows KISS principle: only consumes validated NMS outputs.
-"""
+"""Drawing utilities for bounding boxes, labels, counters."""
 
 import cv2
 import numpy as np
@@ -11,17 +6,7 @@ from src.config import VISUALIZATION, TRAFFIC_CLASSES
 
 
 def draw_detections(image, detections, class_names=None):
-    """
-    Draw bounding boxes and class labels on an image.
-
-    Args:
-        image: BGR image (numpy array).
-        detections: List of [class_id, confidence, x, y, w, h].
-        class_names: Optional list of class names. Defaults to TRAFFIC_CLASSES.
-
-    Returns:
-        Annotated image.
-    """
+    """Draw boxes and labels."""
     if class_names is None:
         class_names = TRAFFIC_CLASSES
 
@@ -34,29 +19,28 @@ def draw_detections(image, detections, class_names=None):
         class_id, conf, x, y, w, h = det
         class_id = int(class_id)
 
-        # Convert normalized coordinates to absolute if needed
         if max(x, y, w, h) <= 1.0:
-            x, y, w, h = int(x * img_w), int(y * img_h), int(w * img_w), int(h * img_h)
-        else:
-            x, y, w, h = int(x), int(y), int(w), int(h)
+            x, y, w, h = x * img_w, y * img_h, w * img_w, h * img_h
+
+        x1 = int(x - w / 2)
+        y1 = int(y - h / 2)
+        x2 = int(x + w / 2)
+        y2 = int(y + h / 2)
 
         label = f"{class_names[class_id]}: {conf:.2f}"
         color = box_colors.get(class_id, default_color)
 
-        # Draw rectangle
-        cv2.rectangle(out, (x, y), (x + w, y + h), color, VISUALIZATION["thickness"])
+        cv2.rectangle(out, (x1, y1), (x2, y2), color, VISUALIZATION["thickness"])
 
-        # Draw label background
         (tw, th), _ = cv2.getTextSize(
             label, VISUALIZATION["font"], VISUALIZATION["font_scale"], 1
         )
-        cv2.rectangle(out, (x, y - th - 4), (x + tw, y), color, -1)
+        cv2.rectangle(out, (x1, y1 - th - 4), (x1 + tw, y1), color, -1)
 
-        # Draw label text
         cv2.putText(
             out,
             label,
-            (x, y - 2),
+            (x1, y1 - 2),
             VISUALIZATION["font"],
             VISUALIZATION["font_scale"],
             VISUALIZATION["text_color"],
@@ -68,19 +52,7 @@ def draw_detections(image, detections, class_names=None):
 
 
 def draw_count_line(image, orientation="horizontal", ratio=0.5, color=None, thickness=None):
-    """
-    Draw a virtual counting line on the image.
-
-    Args:
-        image: BGR image.
-        orientation: "horizontal" or "vertical".
-        ratio: Position of the line as a ratio of width/height (0-1).
-        color: Line color (BGR tuple). Defaults to config count_line_color.
-        thickness: Line thickness. Defaults to config line_thickness.
-
-    Returns:
-        Annotated image.
-    """
+    """Draw counting line."""
     out = image.copy()
     h, w = image.shape[:2]
     color = color or VISUALIZATION.get("count_line_color", (0, 165, 255))
@@ -117,17 +89,7 @@ def draw_count_line(image, orientation="horizontal", ratio=0.5, color=None, thic
 
 
 def draw_counters(image, counts, class_names=None):
-    """
-    Draw vehicle count statistics on the top-right corner of the image.
-
-    Args:
-        image: BGR image.
-        counts: Dictionary {class_name or class_id: count}.
-        class_names: Optional list of class names. Defaults to TRAFFIC_CLASSES.
-
-    Returns:
-        Annotated image.
-    """
+    """Draw count stats on top-right."""
     out = image.copy()
     if class_names is None:
         class_names = TRAFFIC_CLASSES

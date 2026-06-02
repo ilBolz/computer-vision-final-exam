@@ -1,9 +1,4 @@
-"""
-Centralized configuration for the Real-Time Traffic Monitoring Framework.
-
-Single source of truth for paths, class names, and hyperparameters.
-Import this module instead of hard-coding values.
-"""
+"""Project configuration: paths, classes, hyperparameters."""
 
 from pathlib import Path
 
@@ -14,19 +9,16 @@ PROJECT_ROOT = Path(__file__).resolve().parents[1]
 DATA_DIR = PROJECT_ROOT / "data"
 RAW_DATA_DIR = DATA_DIR / "raw"
 PROCESSED_DATA_DIR = DATA_DIR / "processed"
-ANNOTATIONS_DIR = DATA_DIR / "annotations"
 
 # Processed subdirectories
 YOLO_DATASET_DIR = PROCESSED_DATA_DIR / "yolo"
-CLASSIFIER_DATASET_DIR = PROCESSED_DATA_DIR / "classifier"
 
 # Model directories
 MODELS_DIR = PROJECT_ROOT / "models"
-YOLO_TRAFFIC_MODEL_PATH = MODELS_DIR / "yolov8n_traffic.pt"
+YOLO_TRAFFIC_MODEL_PATH = MODELS_DIR / "best.pt"
 YOLO_TRAFFIC_MODEL_FALLBACK = (
     PROJECT_ROOT / "runs" / "detect" / "models" / "yolov8n_traffic" / "weights" / "best.pt"
 )
-VEHICLE_CNN_PATH = MODELS_DIR / "vehicle_cnn.pt"
 
 # Traffic classes (VisDrone2019-DET filtered subset)
 # Original VisDrone IDs mapped to continuous indices:
@@ -57,9 +49,7 @@ for d in [
     DATA_DIR,
     RAW_DATA_DIR,
     PROCESSED_DATA_DIR,
-    ANNOTATIONS_DIR,
     YOLO_DATASET_DIR,
-    CLASSIFIER_DATASET_DIR,
     MODELS_DIR,
 ]:
     d.mkdir(parents=True, exist_ok=True)
@@ -67,9 +57,6 @@ for d in [
 # Preprocessing parameters
 PREPROCESSING = {
     "yolo_input_size": 640,
-    "classifier_input_size": 224,
-    "normalize_mean": [0.485, 0.456, 0.406],  # ImageNet
-    "normalize_std": [0.229, 0.224, 0.225],   # ImageNet
 }
 
 # YOLO parameters
@@ -83,16 +70,6 @@ YOLO = {
     "nms_threshold": 0.4,
     "single_class": False,  # Multi-class traffic detection
     "num_classes": NUM_TRAFFIC_CLASSES,
-}
-
-# CNN parameters
-CNN = {
-    "architecture": "resnet18",  # or "custom"
-    "num_classes": NUM_TRAFFIC_CLASSES,
-    "epochs": 50,
-    "batch_size": 32,
-    "lr": 0.001,
-    "patience": 5,
 }
 
 # Evaluation parameters

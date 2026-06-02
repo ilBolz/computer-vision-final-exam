@@ -1,18 +1,4 @@
-"""
-Download VisDrone2019-DET dataset for traffic monitoring.
-
-Downloads and extracts the VisDrone object detection dataset from
-the Ultralytics mirror (GitHub releases). The dataset is organized as:
-    VisDrone2019-DET-train/
-        images/
-        annotations/
-    VisDrone2019-DET-val/
-        images/
-        annotations/
-    VisDrone2019-DET-test-dev/
-        images/
-        annotations/
-"""
+"""Download VisDrone2019-DET dataset."""
 import sys
 from pathlib import Path
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -38,7 +24,6 @@ VISDRONE_FILES = [
 
 
 def download_file(url: str, dest: Path):
-    """Download a file with progress bar."""
     dest.parent.mkdir(parents=True, exist_ok=True)
     response = requests.get(url, stream=True)
     response.raise_for_status()
@@ -58,7 +43,6 @@ def download_file(url: str, dest: Path):
 
 
 def extract_zip(zip_path: Path, extract_to: Path):
-    """Extract a zip file."""
     extract_to.mkdir(parents=True, exist_ok=True)
     with zipfile.ZipFile(zip_path, "r") as z:
         z.extractall(extract_to)
@@ -66,12 +50,7 @@ def extract_zip(zip_path: Path, extract_to: Path):
 
 
 def download_visdrone(output_dir: Path):
-    """
-    Download and extract VisDrone2019-DET dataset.
-
-    Args:
-        output_dir: Directory to save dataset (default: data/raw/visdrone).
-    """
+    """Download and extract VisDrone."""
     output_dir.mkdir(parents=True, exist_ok=True)
 
     for filename in VISDRONE_FILES:

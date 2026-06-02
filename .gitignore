@@ -77,17 +77,8 @@ cython_debug/
 .ruff_cache/
 .pypirc
 
-# Editors
-.cursorignore
-.cursorindexingignore
-
 # macOS
 .DS_Store
-
-# Project: planning artifacts
-What_was_done.md
-Project_steer.md
-AGENTS.md
 
 # Project: generated outputs & raw data (keep folder structure via .gitkeep)
 data/raw/*
@@ -99,7 +90,12 @@ docs/results/
 # Project: large model binaries & downloaded model files
 models/*
 !models/.gitkeep
+!models/best.pt
 
 # Training artifacts
 runs/
 yolov8n.pt
+*.cache
+
+# Generated docs
+docs/*.pdf
