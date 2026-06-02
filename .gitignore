@@ -97,4 +97,3 @@ runs/
 *.cache
 
 # Generated docs
-docs/*.pdf

@@ -96,12 +96,12 @@ python scripts/run_monitoring.py --source demo/traffic_demo.mp4
 
 ### CLI options
 
-| Option | Description | Default |
-|--------|-------------|---------|
-| `--source` | Camera index (`0`, `1`...) or path to a video file | `0` |
-| `--width` | Capture width in pixels | `1280` |
-| `--height` | Capture height in pixels | `720` |
-| `--native` | Use webcam native resolution (skip width/height) | `False` |
+| Option     | Description                                        | Default |
+| ---------- | -------------------------------------------------- | ------- |
+| `--source` | Camera index (`0`, `1`...) or path to a video file | `0`     |
+| `--width`  | Capture width in pixels                            | `1280`  |
+| `--height` | Capture height in pixels                           | `720`   |
+| `--native` | Use webcam native resolution (skip width/height)   | `False` |
 
 Example with custom resolution:
 
@@ -161,13 +161,19 @@ VISUALIZATION = {
 
 ## Available scripts
 
-| Script | Purpose |
-|--------|---------|
-| `scripts/run_monitoring.py` | Live webcam / video demo |
+| Script                             | Purpose                                             |
+| ---------------------------------- | --------------------------------------------------- |
+| `scripts/run_monitoring.py`        | Live webcam / video demo                            |
 | `scripts/benchmark_webcam_open.py` | Benchmark webcam open speed with different backends |
-| `scripts/download_visdrone.py` | Download the VisDrone2019-DET dataset |
-| `scripts/build_yolo_dataset.py` | Convert VisDrone annotations to YOLO format |
-| `scripts/train_yolo.py` | Train the YOLOv8n traffic detector |
+| `scripts/download_visdrone.py`     | Download the VisDrone2019-DET dataset               |
+| `scripts/build_yolo_dataset.py`    | Convert VisDrone annotations to YOLO format         |
+| `scripts/train_yolo.py`            | Train the YOLOv8n traffic detector                  |
+
+## Technical documentation
+
+The full technical analysis (required deliverable) is available in the repository:
+
+- **`docs/Technical_Analysis_Traffic_Monitoring.pdf`** — contains the five required sections: Problem Statement, Methodology, Experimental Results, Failure Analysis, and Ethical Considerations.
 
 ## Full pipeline (from scratch)
 
@@ -192,7 +198,7 @@ Converts VisDrone annotations to YOLO format under `data/processed/yolo/`.
 ### 3. Train the model
 
 ```bash
-python scripts/train_yolo.py --epochs 20
+python scripts/train_yolo.py --epochs 25
 ```
 
 Outputs are saved under `runs/detect/`. Copy the resulting `best.pt` to `models/best.pt` if you want it loaded automatically.
@@ -212,7 +218,8 @@ python scripts/run_monitoring.py --source 0
 ├── demo/
 │   └── traffic_demo.mp4   # Sample aerial traffic video for testing
 ├── docs/
-│   └── results/           # Screenshots
+│   ├── Technical_Analysis_Traffic_Monitoring.pdf  # Required deliverable (PDF)
+│   └── results/                                   # Screenshots
 ├── models/
 │   ├── best.pt            # Trained traffic weights (included in repo)
 │   └── yolov8n.pt         # COCO fallback (included in repo)
@@ -235,15 +242,15 @@ python scripts/run_monitoring.py --source 0
 
 The original dataset has 12 classes. This project filters 7:
 
-| ID | Class | Original VisDrone ID |
-|----|-------|----------------------|
-| 0 | pedestrian | 1 |
-| 1 | bicycle | 3 |
-| 2 | car | 4 |
-| 3 | van | 5 |
-| 4 | truck | 6 |
-| 5 | bus | 9 |
-| 6 | motor | 10 |
+| ID  | Class      | Original VisDrone ID |
+| --- | ---------- | -------------------- |
+| 0   | pedestrian | 1                    |
+| 1   | bicycle    | 3                    |
+| 2   | car        | 4                    |
+| 3   | van        | 5                    |
+| 4   | truck      | 6                    |
+| 5   | bus        | 9                    |
+| 6   | motor      | 10                   |
 
 Ignored classes: `ignored regions`, `people`, `tricycle`, `awning-tricycle`, `others`.
 
@@ -261,4 +268,3 @@ Ignored classes: `ignored regions`, `people`, `tricycle`, `awning-tricycle`, `ot
   ```
 - **"Cannot open video source"**: try a different index (`--source 0`, `--source 1`, `--source 2`) or use a video file path.
 - **Black / frozen frames**: launch with `--native` to skip forced resolution/fps settings.
-
