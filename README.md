@@ -88,8 +88,8 @@ python scripts/run_webcam.py --source path/to/video.mp4
 
 ### Model weights
 
-- **`models/best.pt`** — trained traffic-specific weights (VisDrone, 7 traffic classes). **This file is included in the repository** so the application works out of the box.
-- **`yolov8n.pt`** — COCO pre-trained weights (fallback). Not included; Ultralytics downloads it automatically on first use only if `best.pt` is missing.
+- **`models/best.pt`** — trained traffic-specific weights (VisDrone, 7 traffic classes). **Included in the repository** so the application works out of the box.
+- **`models/yolov8n.pt`** — COCO pre-trained weights (fallback). **Also included**; used automatically only if `best.pt` is missing.
 
 ### Native webcam mode
 

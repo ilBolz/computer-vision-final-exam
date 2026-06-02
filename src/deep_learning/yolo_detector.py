@@ -26,6 +26,10 @@ class YOLOTrafficDetector:
             return str(YOLO_TRAFFIC_MODEL_PATH)
         if YOLO_TRAFFIC_MODEL_FALLBACK.exists():
             return str(YOLO_TRAFFIC_MODEL_FALLBACK)
+        # Fallback to bundled COCO weights
+        bundled_coco = MODELS_DIR / "yolov8n.pt"
+        if bundled_coco.exists():
+            return str(bundled_coco)
         return YOLO.get("model_name", "yolov8n.pt")
 
     def detect(self, image: np.ndarray) -> list:

@@ -90,11 +90,10 @@ docs/results/
 # Project: large model binaries & downloaded model files
 models/*
 !models/.gitkeep
-!models/best.pt
+!models/*.pt
 
 # Training artifacts
 runs/
-yolov8n.pt
 *.cache
 
 # Generated docs
