@@ -77,15 +77,13 @@ python scripts/run_monitoring.py --source 1
 
 ### Video file
 
-A sample video is included in the repository for quick testing:
+You can use any video file for testing:
 
 ```bash
-python scripts/run_monitoring.py --source demo/traffic_demo.mp4
-```
+# Place your video in the demo/ folder (optional, for convenience)
+python scripts/run_monitoring.py --source demo/your_video.mp4
 
-You can also use any of your own videos:
-
-```bash
+# Or use any path on your system
 python scripts/run_monitoring.py --source path/to/video.mp4
 ```
 
@@ -172,8 +170,7 @@ python scripts/run_monitoring.py --source 0
 │   ├── results/           # Generated screenshots and evaluation plots
 │   ├── technical_analysis.md
 │   └── technical_analysis.pdf
-├── demo/
-│   └── traffic_demo.mp4       # Sample video for quick testing
+├── demo/                      # Optional folder for test videos
 ├── requirements.txt
 └── README.md
 ```
