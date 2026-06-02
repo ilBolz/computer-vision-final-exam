@@ -30,7 +30,6 @@ YOLO_TRAFFIC_MODEL_FALLBACK = (
 # 9 (bus)        -> 5
 # 10 (motor)     -> 6
 TRAFFIC_CLASSES = ["pedestrian", "bicycle", "car", "van", "truck", "bus", "motor"]
-NUM_TRAFFIC_CLASSES = len(TRAFFIC_CLASSES)
 
 # VisDrone original to filtered class mapping
 VISDRONE_CLASS_MAP = {
@@ -54,11 +53,6 @@ for d in [
 ]:
     d.mkdir(parents=True, exist_ok=True)
 
-# Preprocessing parameters
-PREPROCESSING = {
-    "yolo_input_size": 640,
-}
-
 # YOLO parameters
 YOLO = {
     "model_name": "yolov8n.pt",
@@ -68,15 +62,6 @@ YOLO = {
     "lr0": 0.01,
     "conf_threshold": 0.5,
     "nms_threshold": 0.4,
-    "single_class": False,  # Multi-class traffic detection
-    "num_classes": NUM_TRAFFIC_CLASSES,
-}
-
-# Evaluation parameters
-EVALUATION = {
-    "iou_threshold": 0.5,
-    "map_iou_thresholds": [0.5, 0.75],
-    "traffic_classes": TRAFFIC_CLASSES,
 }
 
 # Visualization parameters

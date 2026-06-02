@@ -6,12 +6,19 @@ import numpy as np
 
 
 class SimpleTracker:
-    def __init__(self, iou_threshold=0.3, max_missing=5):
-        """Init tracker."""
+    def __init__(self, iou_threshold=0.3, max_missing=60, centroid_match_thresh=50.0):
+        """Init tracker.
+
+        Args:
+            iou_threshold: minimum IoU to match a detection to an existing track.
+            max_missing: frames to keep a track before deleting it.
+            centroid_match_thresh: fallback matching by centroid distance (pixels).
+        """
         self.iou_threshold = iou_threshold
         self.max_missing = max_missing
+        self.centroid_match_thresh = centroid_match_thresh
         self.next_id = 0
-        self.tracks = {}  # id -> {centroid, bbox, missing_count, counted, class_id}
+        self.tracks = {}  # id -> {centroid, bbox, missing_count, counted, class_id, age}
 
     def update(self, detections):
         """Update tracks with new detections."""
@@ -27,6 +34,7 @@ class SimpleTracker:
         matched = set()
         used_tracks = set()
 
+        # Stage 1: match by IoU
         for i, bbox in enumerate(new_bboxes):
             best_iou = 0.0
             best_tid = None
@@ -39,13 +47,39 @@ class SimpleTracker:
                     best_tid = tid
 
             if best_tid is not None:
-                # Salva il centroide precedente per rilevare i crossing
-                old_centroid = self.tracks[best_tid]["centroid"]
-                self.tracks[best_tid]["prev_centroid"] = old_centroid
+                # Save previous centroid before updating
+                self.tracks[best_tid]["prev_centroid"] = self.tracks[best_tid]["centroid"]
                 self.tracks[best_tid]["bbox"] = bbox
                 self.tracks[best_tid]["centroid"] = new_centroids[i]
                 self.tracks[best_tid]["missing_count"] = 0
                 self.tracks[best_tid]["class_id"] = int(detections[i][0])
+                self.tracks[best_tid]["age"] = self.tracks[best_tid].get("age", 1) + 1
+                used_tracks.add(best_tid)
+                matched.add(i)
+
+        # Stage 2: fallback match by centroid distance for unmatched detections
+        for i in range(len(new_bboxes)):
+            if i in matched:
+                continue
+            best_dist = float("inf")
+            best_tid = None
+            cx, cy = new_centroids[i]
+            for tid, track in self.tracks.items():
+                if tid in used_tracks:
+                    continue
+                tx, ty = track["centroid"]
+                dist = ((cx - tx) ** 2 + (cy - ty) ** 2) ** 0.5
+                if dist < best_dist and dist <= self.centroid_match_thresh:
+                    best_dist = dist
+                    best_tid = tid
+
+            if best_tid is not None:
+                self.tracks[best_tid]["prev_centroid"] = self.tracks[best_tid]["centroid"]
+                self.tracks[best_tid]["bbox"] = new_bboxes[i]
+                self.tracks[best_tid]["centroid"] = new_centroids[i]
+                self.tracks[best_tid]["missing_count"] = 0
+                self.tracks[best_tid]["class_id"] = int(detections[i][0])
+                self.tracks[best_tid]["age"] = self.tracks[best_tid].get("age", 1) + 1
                 used_tracks.add(best_tid)
                 matched.add(i)
 
@@ -58,6 +92,7 @@ class SimpleTracker:
                     "missing_count": 0,
                     "counted": False,
                     "class_id": int(detections[i][0]),
+                    "age": 1,
                 }
                 self.next_id += 1
 
@@ -75,6 +110,7 @@ class SimpleTracker:
                 "centroid": t["centroid"],
                 "prev_centroid": t.get("prev_centroid"),
                 "counted": t["counted"],
+                "age": t.get("age", 1),
             }
             for tid, t in self.tracks.items()
         ]
@@ -82,10 +118,12 @@ class SimpleTracker:
     def check_crossings(self, tracks, line_orientation="horizontal", line_ratio=0.5, img_h=720, img_w=1280):
         """Check line crossings and return count increments.
 
-        Counts only when an object truly crosses the line:
-        - horizontal: from above (prev < line) to below (curr >= line)
-        - vertical: from left (prev < line) to right (curr >= line)
-        Objects without previous history or already counted are ignored.
+        Counts an object whenever it actually crosses the line, regardless of
+        direction:
+          - horizontal: from above to below OR from below to above
+          - vertical:   from left to right OR from right to left
+
+        Objects with no history (prev_centroid is None) are ignored.
         """
         counts = defaultdict(int)
 
@@ -94,12 +132,12 @@ class SimpleTracker:
             for track in tracks:
                 if track["counted"]:
                     continue
-                prev = track.get("prev_centroid")
-                if prev is None:
+                prev_centroid = track.get("prev_centroid")
+                if prev_centroid is None:
                     continue
-                _, prev_y = prev
+                _, prev_y = prev_centroid
                 _, curr_y = track["centroid"]
-                if prev_y < line_pos and curr_y >= line_pos:
+                if (prev_y < line_pos <= curr_y) or (prev_y >= line_pos > curr_y):
                     track["counted"] = True
                     counts[track["class_id"]] += 1
         else:
@@ -107,12 +145,12 @@ class SimpleTracker:
             for track in tracks:
                 if track["counted"]:
                     continue
-                prev = track.get("prev_centroid")
-                if prev is None:
+                prev_centroid = track.get("prev_centroid")
+                if prev_centroid is None:
                     continue
-                prev_x, _ = prev
+                prev_x, _ = prev_centroid
                 curr_x, _ = track["centroid"]
-                if prev_x < line_pos and curr_x >= line_pos:
+                if (prev_x < line_pos <= curr_x) or (prev_x >= line_pos > curr_x):
                     track["counted"] = True
                     counts[track["class_id"]] += 1
 

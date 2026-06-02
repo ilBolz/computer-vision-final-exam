@@ -1,19 +1,19 @@
 # Real-Time Traffic Monitoring
 
-Real-time traffic monitoring system that detects 7 vehicle/pedestrian categories using YOLOv8n. Includes a live webcam pipeline with a virtual counting line.
+Real-time traffic monitoring system that detects and counts 7 vehicle/pedestrian categories using a custom YOLOv8n model trained on VisDrone2019-DET. Includes a live webcam/video pipeline with a virtual counting line.
 
 ## What it does
 
 - **Detection**: locates pedestrians, bicycles, cars, vans, trucks, buses and motorcycles in real time
-- **Tracking**: keeps object IDs across frames using an IoU-based tracker
-- **Counting**: counts vehicles crossing a configurable virtual line
+- **Tracking**: keeps object IDs across frames using an IoU + centroid distance tracker
+- **Counting**: counts vehicles crossing a configurable virtual line in either direction
 
 ## Tech stack
 
 - Python 3.10+
-- OpenCV (video capture, NMS, filtering)
+- OpenCV (video capture and display)
 - Ultralytics YOLOv8 (object detection)
-- scikit-learn (evaluation metrics)
+- PyTorch + TorchVision (deep learning backend)
 - pytest (test suite)
 
 ## Requirements
@@ -21,8 +21,8 @@ Real-time traffic monitoring system that detects 7 vehicle/pedestrian categories
 - Python 3.10 or newer
 - Git
 - Webcam (for live mode) or a video file
-- ~3 GB free space (dataset + environment + models)
-- (Optional but recommended) NVIDIA GPU with CUDA for training and smoother inference
+- ~500 MB free space (environment + models)
+- (Optional but recommended) NVIDIA GPU with CUDA for smoother inference
 
 ## Setup
 
@@ -61,7 +61,7 @@ All tests should pass.
 
 ## Quick start
 
-> **Note**: the very first time you run the webcam pipeline, the YOLO model may take **20-30 seconds** to load. This is normal and depends on your hardware.
+> **Note**: the very first time you run the monitoring pipeline, the YOLO model may take **20-30 seconds** to load. This is normal and depends on your hardware.
 
 ### Webcam (built-in — index 0)
 
@@ -77,7 +77,11 @@ python scripts/run_monitoring.py --source 1
 
 ### Video file
 
-### Video file
+```bash
+python scripts/run_monitoring.py --source path/to/video.mp4
+```
+
+### Demo video (included)
 
 A sample aerial traffic video is included in the repository for quick testing:
 
@@ -85,43 +89,89 @@ A sample aerial traffic video is included in the repository for quick testing:
 python scripts/run_monitoring.py --source demo/traffic_demo.mp4
 ```
 
-You can also use any of your own videos:
-
-```bash
-python scripts/run_monitoring.py --source path/to/video.mp4
-```
-
 ### Controls while running
 
 - `s` → save screenshot to `docs/results/screenshot.jpg`
 - `q` → quit
 
-### Model weights
+### CLI options
 
-- **`models/best.pt`** — trained traffic-specific weights (VisDrone, 7 traffic classes). **Included in the repository** so the application works out of the box.
-- **`models/yolov8n.pt`** — COCO pre-trained weights (fallback). **Also included**; used automatically only if `best.pt` is missing.
+| Option | Description | Default |
+|--------|-------------|---------|
+| `--source` | Camera index (`0`, `1`...) or path to a video file | `0` |
+| `--width` | Capture width in pixels | `1280` |
+| `--height` | Capture height in pixels | `720` |
+| `--native` | Use webcam native resolution (skip width/height) | `False` |
 
-### Native webcam mode
-
-If your webcam freezes or shows black frames with forced resolutions, launch with `--native` to use the camera's default settings:
+Example with custom resolution:
 
 ```bash
-python scripts/run_monitoring.py --source 1 --native
+python scripts/run_monitoring.py --source 1 --width 1920 --height 1080
+```
+
+## Model weights
+
+Both model files are **included in the repository** and work out of the box:
+
+- **`models/best.pt`** — custom traffic-specific weights trained on VisDrone2019-DET (7 traffic classes). This is the primary model loaded by the application.
+- **`models/yolov8n.pt`** — COCO pre-trained weights (fallback). Loaded automatically only if `best.pt` is missing.
+
+No manual download is required to run the demo.
+
+## Configuration
+
+All tunable parameters are centralized in `src/config.py`:
+
+**Counting line** (`WEBCAM` dict):
+
+```python
+WEBCAM = {
+    "count_line_orientation": "horizontal",  # "horizontal" or "vertical"
+    "count_line_y_ratio": 0.5,               # line position: 0.0 (top) to 1.0 (bottom)
+    ...
+}
+```
+
+Change `count_line_orientation` to `"vertical"` for left-to-right counting, and adjust `count_line_y_ratio` to move the line up or down.
+
+**Detection thresholds** (`YOLO` dict):
+
+```python
+YOLO = {
+    "conf_threshold": 0.5,   # minimum confidence to keep a detection
+    "nms_threshold": 0.4,    # NMS IoU threshold
+    ...
+}
+```
+
+**Visualization colors** (`VISUALIZATION` dict):
+
+```python
+VISUALIZATION = {
+    "box_colors": {
+        0: (128, 128, 128),   # pedestrian - gray
+        1: (255, 128, 0),     # bicycle - orange
+        2: (0, 255, 0),       # car - green
+        ...
+    },
+    "count_line_color": (0, 165, 255),  # orange line
+    ...
+}
 ```
 
 ## Available scripts
 
-| Script                             | Purpose                                             |
-| ---------------------------------- | --------------------------------------------------- |
-| `scripts/run_monitoring.py`        | Live webcam / video demo (default source 0)         |
+| Script | Purpose |
+|--------|---------|
+| `scripts/run_monitoring.py` | Live webcam / video demo |
 | `scripts/benchmark_webcam_open.py` | Benchmark webcam open speed with different backends |
-| `scripts/download_visdrone.py`     | Download the VisDrone2019-DET dataset               |
-| `scripts/build_yolo_dataset.py`    | Convert annotations to YOLO format                  |
-| `scripts/train_yolo.py`            | Train the YOLOv8n traffic detector                  |
+| `scripts/download_visdrone.py` | Download the VisDrone2019-DET dataset |
+| `scripts/build_yolo_dataset.py` | Convert VisDrone annotations to YOLO format |
+| `scripts/train_yolo.py` | Train the YOLOv8n traffic detector |
 
 ## Full pipeline (from scratch)
 
-If you start without models, follow these steps to train them.
+If you want to re-train the model or start without the included weights, follow these steps.
 
 ### 1. Download the VisDrone2019-DET dataset
 
@@ -131,23 +181,23 @@ python scripts/download_visdrone.py --output data/raw/visdrone
 
 Downloads ~1.5 GB of images and annotations.
 
-### 2. Build the structured datasets
+### 2. Build the structured dataset
 
 ```bash
-# YOLO format for the detector
 python scripts/build_yolo_dataset.py
 ```
 
-### 3. Train the models
+Converts VisDrone annotations to YOLO format under `data/processed/yolo/`.
+
+### 3. Train the model
 
 ```bash
-# YOLOv8n (~20-30 min on GPU, much longer on CPU)
 python scripts/train_yolo.py --epochs 20
 ```
 
-Outputs are saved under `runs/detect/`. Copy or symlink the resulting `best.pt` to `models/best.pt` if you want it loaded automatically.
+Outputs are saved under `runs/detect/`. Copy the resulting `best.pt` to `models/best.pt` if you want it loaded automatically.
 
-### 4. Launch the webcam demo
+### 4. Launch the demo
 
 ```bash
 python scripts/run_monitoring.py --source 0
@@ -159,23 +209,24 @@ python scripts/run_monitoring.py --source 0
 ├── data/
 │   ├── raw/               # VisDrone dataset (gitignored)
 │   └── processed/         # YOLO dataset (gitignored)
-├── models/
-│   └── best.pt            # Trained YOLO weights (gitignored)
-├── src/
-│   ├── config.py          # Centralized configuration
-│   ├── preprocessing/     # VisDrone → YOLO format conversion
-│   ├── deep_learning/     # YOLO detector & training wrapper
-│   ├── postprocessing/    # IoU, tracker, counting line
-│   ├── webcam/            # Streamer and live pipeline
-│   └── utils/             # Drawing utilities (bboxes, counters)
-├── scripts/               # Entrypoints for training, building, webcam, benchmarks
-├── tests/                 # pytest suite
+├── demo/
+│   └── traffic_demo.mp4   # Sample aerial traffic video for testing
 ├── docs/
-│   ├── results/           # Generated screenshots and evaluation plots
+│   ├── results/           # Screenshots and evaluation plots
 │   ├── technical_analysis.md
 │   └── technical_analysis.pdf
-├── demo/
-│   └── traffic_demo.mp4       # Sample aerial traffic video for testing
+├── models/
+│   ├── best.pt            # Trained traffic weights (included in repo)
+│   └── yolov8n.pt         # COCO fallback (included in repo)
+├── scripts/               # Entrypoints for training, building, demo, benchmarks
+├── src/
+│   ├── config.py          # Centralized configuration
+│   ├── deep_learning/     # YOLO detector & training wrapper
+│   ├── postprocessing/    # Tracker & counting line logic
+│   ├── preprocessing/     # VisDrone → YOLO format conversion
+│   ├── utils/             # Drawing utilities (bboxes, counters, line)
+│   └── webcam/            # Video streamer and live pipeline
+├── tests/                 # pytest suite
 ├── requirements.txt
 └── README.md
 ```
@@ -186,23 +237,23 @@ python scripts/run_monitoring.py --source 0
 
 The original dataset has 12 classes. This project filters 7:
 
-| ID  | Class      | Original VisDrone ID |
-| --- | ---------- | -------------------- |
-| 0   | pedestrian | 1                    |
-| 1   | bicycle    | 3                    |
-| 2   | car        | 4                    |
-| 3   | van        | 5                    |
-| 4   | truck      | 6                    |
-| 5   | bus        | 9                    |
-| 6   | motor      | 10                   |
+| ID | Class | Original VisDrone ID |
+|----|-------|----------------------|
+| 0 | pedestrian | 1 |
+| 1 | bicycle | 3 |
+| 2 | car | 4 |
+| 3 | van | 5 |
+| 4 | truck | 6 |
+| 5 | bus | 9 |
+| 6 | motor | 10 |
 
 Ignored classes: `ignored regions`, `people`, `tricycle`, `awning-tricycle`, `others`.
 
 ## Notes and troubleshooting
 
-- **First run is slow**: YOLO weights (`yolov8n.pt` or `best.pt`) are loaded at startup. Expect 20-30 seconds before the video window appears.
+- **First run is slow**: YOLO weights are loaded at startup. Expect 20-30 seconds before the video window appears.
 - **No webcam data leaves the PC**: everything is processed locally.
-- **VisDrone is collected in China**: performance may vary in other countries or lighting conditions.
+- **Aerial perspective**: the model is trained on aerial/drone images (VisDrone). Performance on street-level videos may vary.
 
 ### Windows-specific webcam issues
 
